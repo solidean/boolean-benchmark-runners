@@ -4,22 +4,22 @@ This repo contains small standalone runners that all support the same request/re
 
 | Project                                                                                                       | Type     | Variant                        | Version | Capabilities | License     |
 | ------------------------------------------------------------------------------------------------------------- | -------- | ------------------------------ | ------- | ------------ | ----------- |
-| [Blender](https://www.blender.org/)                                                                           | Tool     | Exact                          | 5.1     |              | GPL         |
-| [Blender](https://www.blender.org/)                                                                           | Tool     | Fast                           | 5.1     |              | GPL         |
-| [Carve](https://github.com/VTREEM/Carve)                                                                      | Library  | Default                        | 2014-9  | R            | GPL         |
-| [CGAL](https://www.cgal.org/)                                                                                 | Library  | Corefine (EPEC)                | 6.1.1   | E R I        | GPL / Commercial |
-| [CGAL](https://www.cgal.org/)                                                                                 | Library  | Nef (EH-EI)           | 6.1.1   | E R I S      | GPL / Commercial |
-| [CGAL](https://www.cgal.org/)                                                                                 | Library  | Nef (EH-EI, Reg)               | 6.1.1   | E R I S      | GPL / Commercial |
-| [Geogram](https://github.com/BrunoLevy/geogram)                                                               | Library  | Boolean                        | 1.9.8   | E R S        | BSD-3       |
-| [Interactive and Robust Mesh Booleans](https://github.com/gcherchi/InteractiveAndRobustMeshBooleans)          | Research | Default                        | 2024-6  | R            | MIT         |
-| [Manifold](https://github.com/elalish/manifold)                                                               | Library  | Default                        | 3.4.0   | R I          | Apache-2.0  |
-| [mcut](https://github.com/cutdigital/mcut)                                                                    | Library  | Default                        | 1.3.0   | R            | LGPL / Commercial |
-| [Mesh Arrangements for Solid Geometry](https://github.com/wjakob/mesh-arrangements)                           | Research | Default                        | 2.6.0   | E R S        | GPL / Commercial (via CGAL) |
-| [QuickCSG](https://gitlab.inria.fr/quickcsg/quickcsg)                                                         | Research | Default                        | 2022-10 |              | Free (non-commercial) / Commercial |
-| [Solidean](https://solidean.com)                                                                              | Library  | Default                        | 2026.1  | E R I S      | Proprietary (Free non-commercial) |
-| [Trueform](https://github.com/polydera/trueform)                                                              | Library  | Default                        | 0.7.0   | R I S        | Free (non-commercial) / Commercial |
-| [VTK](https://vtk.org/)                                                                                       | Library  | BoolOp | 9.6.0   |              | BSD-3        |
-| [VTK](https://vtk.org/)                                                                                       | Library  | LoopBool      | 9.6.0   |              | BSD-3        |
+| [Blender](https://www.blender.org/)                                                                           | Tool     | [Exact](blender/5.1/runner.yaml)                          | 5.1     |              | GPL         |
+| [Blender](https://www.blender.org/)                                                                           | Tool     | [Fast](blender/5.1/runner.yaml)                           | 5.1     |              | GPL         |
+| [Carve](https://github.com/VTREEM/Carve)                                                                      | Library  | [Default](carve/2014-9/runner.yaml)                        | 2014-9  | R            | GPL         |
+| [CGAL](https://www.cgal.org/)                                                                                 | Library  | [Corefine (EPEC)](cgal/6.1.1/corefine/epec/runner.yaml)                | 6.1.1   | E R I        | GPL / Commercial |
+| [CGAL](https://www.cgal.org/)                                                                                 | Library  | [Nef (EH-EI)](cgal/6.1.1/nef/exact_homogeneous_integer/runner.yaml)           | 6.1.1   | E R I S      | GPL / Commercial |
+| [CGAL](https://www.cgal.org/)                                                                                 | Library  | [Nef (EH-EI, Reg)](cgal/6.1.1/nef/exact_homogeneous_integer/runner.yaml)               | 6.1.1   | E R I S      | GPL / Commercial |
+| [Geogram](https://github.com/BrunoLevy/geogram)                                                               | Library  | [Boolean](geogram/1.9.8/boolean/runner.yaml)                        | 1.9.8   | E R S        | BSD-3       |
+| [Interactive and Robust Mesh Booleans](https://github.com/gcherchi/InteractiveAndRobustMeshBooleans)          | Research | [Default](interactive-and-robust-mesh-booleans/2024-6/runner.yaml)                        | 2024-6  | R            | MIT         |
+| [Manifold](https://github.com/elalish/manifold)                                                               | Library  | [Default](manifold/3.4.0/runner.yaml)                        | 3.4.0   | R I          | Apache-2.0  |
+| [mcut](https://github.com/cutdigital/mcut)                                                                    | Library  | [Default](mcut/1.3.0/runner.yaml)                        | 1.3.0   | R            | LGPL / Commercial |
+| [Mesh Arrangements for Solid Geometry](https://github.com/wjakob/mesh-arrangements)                           | Research | [Default](mesh-arrangements-for-solid-geometry/2.6.0/runner.yaml)                        | 2.6.0   | E R S        | GPL / Commercial (via CGAL) |
+| [QuickCSG](https://gitlab.inria.fr/quickcsg/quickcsg)                                                         | Research | [Default](quickcsg/2022-10/runner.yaml)                        | 2022-10 |              | Free (non-commercial) / Commercial |
+| [Solidean](https://solidean.com)                                                                              | Library  | [Default](solidean/2026.1/runner.yaml)                        | 2026.1  | E R I S      | Proprietary (Free non-commercial) |
+| [Trueform](https://github.com/polydera/trueform)                                                              | Library  | [Default](trueform/0.7.0/runner.yaml)                        | 0.7.0   | R I S        | Free (non-commercial) / Commercial |
+| [VTK](https://vtk.org/)                                                                                       | Library  | [BoolOp](vtk/9.6.0/boolean_polydata/runner.yaml) | 9.6.0   |              | BSD-3        |
+| [VTK](https://vtk.org/)                                                                                       | Library  | [LoopBool](vtk/9.6.0/loop_boolean/runner.yaml)      | 9.6.0   |              | BSD-3        |
 
 ## Capability Legend
 
