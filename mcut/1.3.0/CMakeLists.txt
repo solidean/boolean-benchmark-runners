@@ -41,7 +41,7 @@ add_executable(mcut_runner
 if(NOT DEFINED PROJECT_ROOT)
   message(FATAL_ERROR "PROJECT_ROOT must be passed by build.py via -DPROJECT_ROOT=<path>")
 endif()
-set(COMMON_INCLUDE_DIR "${PROJECT_ROOT}/runners/_common/cpp/include")
+set(COMMON_INCLUDE_DIR "${PROJECT_ROOT}/_common/cpp/include")
 
 target_include_directories(mcut_runner PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/src

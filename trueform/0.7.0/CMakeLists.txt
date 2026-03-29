@@ -27,7 +27,7 @@ add_executable(trueform_runner
 if(NOT DEFINED PROJECT_ROOT)
   message(FATAL_ERROR "PROJECT_ROOT must be passed by build.py via -DPROJECT_ROOT=<path>")
 endif()
-set(COMMON_INCLUDE_DIR "${PROJECT_ROOT}/runners/_common/cpp/include")
+set(COMMON_INCLUDE_DIR "${PROJECT_ROOT}/_common/cpp/include")
 
 target_include_directories(trueform_runner PRIVATE
   "${TRUEFORM_SOURCE_DIR}/include"

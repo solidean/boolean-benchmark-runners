@@ -61,7 +61,7 @@ def _find_repo_root(start: Path) -> Path:
 
 RUNNER_DIR   = Path(__file__).resolve().parent
 PROJECT_ROOT = _find_repo_root(RUNNER_DIR)
-sys.path.insert(0, str(PROJECT_ROOT / "runners" / "_common" / "build_helpers" / "python"))
+sys.path.insert(0, str(PROJECT_ROOT / "_common" / "build_helpers" / "python"))
 import builder_helpers as bh  # noqa: E402
 
 

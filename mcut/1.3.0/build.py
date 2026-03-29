@@ -53,7 +53,7 @@ def _find_repo_root(start: Path) -> Path:
 
 RUNNER_DIR   = Path(__file__).resolve().parent
 PROJECT_ROOT = _find_repo_root(RUNNER_DIR)
-sys.path.insert(0, str(PROJECT_ROOT / "runners" / "_common" / "build_helpers" / "python"))
+sys.path.insert(0, str(PROJECT_ROOT / "_common" / "build_helpers" / "python"))
 import builder_helpers as bh  # noqa: E402
 
 
@@ -69,8 +69,6 @@ MCUT_CLONE   = DOWNLOAD_DIR / "mcut"
 MCUT_GIT_URL = "https://github.com/cutdigital/mcut.git"
 MCUT_TAG     = "v1.3.0"
 
-VCPKG_ROOT      = PROJECT_ROOT / "extern" / "vcpkg"
-VCPKG_TOOLCHAIN = VCPKG_ROOT / "scripts" / "buildsystems" / "vcpkg.cmake"
 
 
 # ---------------------------------------------------------------------------
@@ -109,7 +107,7 @@ def cmake_build(mode: str) -> None:
     # Configure
     bh.run([
         "cmake",
-        f"-DCMAKE_TOOLCHAIN_FILE={VCPKG_TOOLCHAIN}",
+        f"-DCMAKE_TOOLCHAIN_FILE={bh.vcpkg_toolchain(PROJECT_ROOT)}",
         f"-DCMAKE_BUILD_TYPE={cmake_build_type}",
         f"-DMCUT_SOURCE_DIR={MCUT_CLONE}",
         f"-DPROJECT_ROOT={PROJECT_ROOT}",
@@ -155,7 +153,7 @@ def main() -> int:
         return 0
 
     # Step 1: ensure vcpkg is bootstrapped
-    bh.ensure_vcpkg_bootstrapped(VCPKG_ROOT)
+    bh.ensure_vcpkg_bootstrapped(project_root=PROJECT_ROOT)
 
     # Step 2: acquire upstream
     clone_mcut(force=args.force_download)

@@ -14,7 +14,7 @@ Typical usage in a build.py:
 
     RUNNER_DIR   = Path(__file__).resolve().parent
     PROJECT_ROOT = _find_repo_root(RUNNER_DIR)
-    sys.path.insert(0, str(PROJECT_ROOT / "runners" / "_common" / "build_helpers" / "python"))
+    sys.path.insert(0, str(PROJECT_ROOT / "_common" / "build_helpers" / "python"))
     import builder_helpers as bh
 """
 
@@ -80,28 +80,41 @@ def executable_name(stem: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# vcpkg paths
+# ---------------------------------------------------------------------------
+
+def vcpkg_root(project_root: Path) -> Path:
+    return project_root / "_common" / "vcpkg"
+
+
+def vcpkg_toolchain(project_root: Path) -> Path:
+    return vcpkg_root(project_root) / "scripts" / "buildsystems" / "vcpkg.cmake"
+
+
+# ---------------------------------------------------------------------------
 # vcpkg bootstrap
 # ---------------------------------------------------------------------------
 
-def ensure_vcpkg_bootstrapped(vcpkg_root: Path) -> None:
-    if not vcpkg_root.exists():
+def ensure_vcpkg_bootstrapped(project_root: Path) -> None:
+    vr = vcpkg_root(project_root)
+    if not vr.exists():
         raise RuntimeError(
-            f"vcpkg submodule not found at {vcpkg_root}.\n"
+            f"vcpkg submodule not found at {vr}.\n"
             "Run: git submodule update --init --recursive"
         )
 
-    vcpkg_exe = vcpkg_root / ("vcpkg.exe" if platform.system() == "Windows" else "vcpkg")
+    vcpkg_exe = vr / ("vcpkg.exe" if platform.system() == "Windows" else "vcpkg")
     if vcpkg_exe.exists():
         print(f"[skip] vcpkg already bootstrapped at {vcpkg_exe}")
         return
 
-    print(f"Bootstrapping vcpkg at {vcpkg_root} ...")
+    print(f"Bootstrapping vcpkg at {vr} ...")
     if platform.system() == "Windows":
-        bootstrap = vcpkg_root / "bootstrap-vcpkg.bat"
-        run([str(bootstrap)], cwd=vcpkg_root)
+        bootstrap = vr / "bootstrap-vcpkg.bat"
+        run([str(bootstrap)], cwd=vr)
     else:
-        bootstrap = vcpkg_root / "bootstrap-vcpkg.sh"
-        run(["bash", str(bootstrap)], cwd=vcpkg_root)
+        bootstrap = vr / "bootstrap-vcpkg.sh"
+        run(["bash", str(bootstrap)], cwd=vr)
 
     if not vcpkg_exe.exists():
         raise RuntimeError(f"Bootstrap completed but vcpkg executable not found: {vcpkg_exe}")

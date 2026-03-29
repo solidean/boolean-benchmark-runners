@@ -30,6 +30,11 @@ Capabilities are self-reported by the respective projects. They reflect what a m
 - [**I**] Stable under repeated/iterative operations: the result is usable for additional booleans without loss of information. Methods that output indexed float/double triangle meshes generally cannot claim this unless specifically designed for it.
 - [**S**] Supports self-intersections: the method must support some self-intersecting input meshes properly and by design.
 
+## Quickstart
+
+* `uv run bootstrap-vcpkg.py` (optional, pre-warms vcpkg, can take 60+ min cold)
+* `uv run build-all.py` (calls all individual build.py scripts, can take 30+ min cold)
+
 ## TODOs
 
 - Blender: needs an exact + self-intersection variant (the current Exact variant does not support self-intersecting input).

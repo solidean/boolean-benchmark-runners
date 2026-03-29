@@ -94,7 +94,7 @@ add_executable(cork_runner
 if(NOT DEFINED PROJECT_ROOT)
   message(FATAL_ERROR "PROJECT_ROOT must be passed by build.py via -DPROJECT_ROOT=<path>")
 endif()
-set(COMMON_INCLUDE_DIR "${PROJECT_ROOT}/runners/_common/cpp/include")
+set(COMMON_INCLUDE_DIR "${PROJECT_ROOT}/_common/cpp/include")
 
 # Cork's headers live in per-feature subdirectories (mesh/, math/, rawmesh/, …).
 # Collect them so relative includes like #include "mesh.h" resolve correctly.
