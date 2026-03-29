@@ -1,0 +1,58 @@
+runner:
+  family: mcut
+  version: "1.3.0"
+  algorithm: boolean
+  runner_id: mcut-1.3.0-boolean
+  display_name: "mcut 1.3.0"
+
+upstream:
+  source: git
+  url: https://github.com/cutdigital/mcut.git
+  ref: v1.3.0
+  # resolved_commit is filled in by build.py at build time and recorded in bin/build-info.json
+
+build:
+  script: ./build.py
+  outputs:
+    - bin/mcut_runner
+    - bin/build-info.json
+  default_mode: release
+
+entry:
+  kind: executable
+  command: ./bin/mcut_runner
+  args:
+    - --request
+    - "{request}"
+    - --result
+    - "{result}"
+
+variants:
+  - id: default
+    label: "Default"
+    display_name: "mcut 1.3.0"
+    color: "#FF2D55"
+    args: []
+    capabilities:
+      operations:
+        - union
+        - intersection
+        - difference
+      input_formats: [off, obj, stl]
+      requires_closed_meshes: true
+      accepts_self_intersections: false
+      accepts_non_manifold_inputs: false
+      supports_components: true
+      supports_variadic_booleans: false
+
+notes:
+  - "mcut C API: mcCreateContext / mcDispatch / mcGetConnectedComponents / mcGetConnectedComponentData / mcReleaseConnectedComponents / mcReleaseContext."
+  - "McContext is created once at startup (main) and reused across all runs."
+  - "Boolean ops via McDispatchFlags: union = MC_DISPATCH_FILTER_FRAGMENT_SEALING_OUTSIDE | MC_DISPATCH_FILTER_PATCH_OUTSIDE; intersection = MC_DISPATCH_FILTER_FRAGMENT_SEALING_INSIDE | MC_DISPATCH_FILTER_PATCH_INSIDE; difference (A-B) = MC_DISPATCH_FILTER_FRAGMENT_SEALING_OUTSIDE | MC_DISPATCH_FILTER_PATCH_INSIDE."
+  - "All connected components returned per dispatch are merged (vertex-offset concatenation) into a single result mesh."
+  - "SSA stores flat indexed-f64 meshes (std::vector<double> verts + std::vector<uint32_t> indices) — mcut has no persistent native mesh type."
+  - "Raw mesh format: indexed-tris-f64."
+  - "io_ms (load-mesh): file → flat double vertices + int indices via runner_mesh_helpers::loadFromFileIndexed."
+  - "import_ms (load-mesh): int-to-uint32_t index cast + basic non-empty check; near-zero cost."
+  - "operation_ms (boolean ops): mcDispatch() only."
+  - "export_ms (boolean ops): mcGetConnectedComponents + mcGetConnectedComponentData (vertex doubles + MC_CONNECTED_COMPONENT_DATA_FACE_TRIANGULATION) + CC merge with index offsetting; excludes disk write."

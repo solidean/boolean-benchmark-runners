@@ -1,0 +1,56 @@
+runner:
+  family: trueform
+  version: "0.7.0"
+  algorithm: boolean
+  runner_id: trueform-0.7.0-boolean
+  display_name: "Trueform 0.7.0 Boolean"
+
+upstream:
+  source: git
+  url: https://github.com/polydera/trueform.git
+  ref: v0.7.0
+  # resolved_commit is filled in by build.py at build time
+
+build:
+  script: ./build.py
+  outputs:
+    - bin/trueform_runner
+    - bin/build-info.json
+  default_mode: release
+
+entry:
+  kind: executable
+  command: ./bin/trueform_runner
+  args:
+    - --request
+    - "{request}"
+    - --result
+    - "{result}"
+
+variants:
+  - id: base
+    internal: true
+    args: []
+    capabilities:
+      operations: [union, intersection, difference]
+      input_formats: [off, obj, stl]
+      requires_closed_meshes: true
+      accepts_self_intersections: false
+      accepts_non_manifold_inputs: false
+      supports_components: true
+      supports_variadic_booleans: false
+
+  - id: default
+    extends: base
+    label: "Default"
+    display_name: "Trueform 0.7.0"
+    color: "#00d4bd"
+    args: []
+
+notes:
+  - "Mesh type: tf::Polygons (triangular polygon mesh)"
+  - "Raw mesh format: indexed-tris-f32 (trueform uses float, not double)"
+  - "io_ms (load-mesh): file → flat f64 verts + int indices (runner_mesh_helpers::loadFromFileIndexed)"
+  - "import_ms (load-mesh): f64→f32 cast + tf::make_points/make_faces/make_polygons"
+  - "export_ms (boolean ops): polygon vertex/face extraction + f32→f64 cast, excludes disk write"
+  - "Boolean ops: tf::make_boolean(lhs, rhs, tf::boolean_op::merge/intersection/difference)"

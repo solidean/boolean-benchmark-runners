@@ -1,0 +1,8 @@
+{
+  "name": "vtk-loop-runner-deps",
+  "version-string": "1.0",
+  "description": "Dependencies for the VTK loop boolean runner (VTK itself is built from source via build.py)",
+  "dependencies": [
+    "nlohmann-json"
+  ]
+}

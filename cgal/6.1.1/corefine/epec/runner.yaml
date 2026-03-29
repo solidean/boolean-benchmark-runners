@@ -1,0 +1,65 @@
+runner:
+  family: cgal
+  version: "6.1.1"
+  algorithm: corefine
+  material_variant: epec
+  runner_id: cgal-6.1.1-corefine-epec
+  display_name: "CGAL 6.1.1 Corefine (Exact_predicates_exact_constructions_kernel)"
+
+upstream:
+  source: git
+  url: https://github.com/CGAL/cgal.git
+  ref: v6.1.1
+  # resolved_commit is filled in by build.py at build time and recorded in bin/build-info.json
+
+build:
+  script: ./build.py
+  outputs:
+    - bin/corefine_runner
+    - bin/build-info.json
+  default_mode: release
+
+entry:
+  kind: executable
+  command: ./bin/corefine_runner
+  args:
+    - --request
+    - "{request}"
+    - --result
+    - "{result}"
+
+variants:
+  - id: base
+    internal: true
+    args: []
+    capabilities:
+      operations:
+        - union
+        - intersection
+        - difference
+      input_formats: [off, obj, stl]
+      requires_closed_meshes: true
+      accepts_self_intersections: false
+      accepts_non_manifold_inputs: false
+      supports_components: true
+      supports_variadic_booleans: false
+
+  - id: default
+    extends: base
+    label: "Default (EPEC kernel, Surface_mesh)"
+    display_name: "CGAL 6.1.1 Corefine (EPEC)"
+    color: "#ffff00"
+    args: []
+
+notes:
+  - "Kernel: CGAL::Exact_predicates_exact_constructions_kernel (EPEC) — exact predicates and exact constructions."
+  - "Mesh type: CGAL::Surface_mesh<K::Point_3> — halfedge data structure."
+  - "Boolean ops: CGAL::Polygon_mesh_processing::corefine_and_compute_{union,intersection,difference}."
+  - "These functions require closed, manifold, non-self-intersecting meshes. A false return maps to invalid_input."
+  - "Loading: double polygon soup → repair_polygon_soup → orient_polygon_soup → polygon_soup_to_polygon_mesh; validated with is_closed + is_valid_polygon_mesh."
+  - "Exporting: halfedge face traversal, EPEC points converted to double via CGAL::to_double, fan-triangulated."
+  - "Variadic booleans are not supported. Use iterated binary ops via the meta-runner."
+  - "Raw mesh format: indexed-tris-f64 (input and output)."
+  - "io_ms (load-mesh): file → double polygon soup via CGAL IO read functions."
+  - "import_ms (load-mesh): double polygon soup → Surface_mesh<EPEC> via repair → orient → polygon_soup_to_polygon_mesh + is_closed/is_valid validation."
+  - "export_ms (boolean ops): Surface_mesh<EPEC> → indexed-tris-f64 via halfedge traversal + CGAL::to_double conversion + fan triangulation; excludes disk write."

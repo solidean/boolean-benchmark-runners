@@ -1,0 +1,8 @@
+{
+  "name": "carve-runner-deps",
+  "version-string": "1.0",
+  "description": "Dependencies for the Carve boolean runner (Carve itself is built via add_subdirectory)",
+  "dependencies": [
+    "nlohmann-json"
+  ]
+}

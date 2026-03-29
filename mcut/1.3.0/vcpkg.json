@@ -1,0 +1,8 @@
+{
+  "name": "mcut-deps",
+  "version-string": "1.0",
+  "description": "Dependencies for mcut runner (mcut itself is built from source via add_subdirectory)",
+  "dependencies": [
+    "nlohmann-json"
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "name": "cgal-deps",
+  "version-string": "1.0",
+  "description": "Dependencies for building CGAL from source in benchmark runners",
+  "dependencies": [
+    "boost",
+    "gmp",
+    "mpfr",
+    "nlohmann-json"
+  ]
+}

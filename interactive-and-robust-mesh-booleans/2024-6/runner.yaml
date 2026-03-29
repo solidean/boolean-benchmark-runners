@@ -1,0 +1,61 @@
+runner:
+  family: interactive-and-robust-mesh-booleans
+  version: "2024-6"
+  algorithm: boolean
+  runner_id: interactive-and-robust-mesh-booleans-2024-6-boolean
+  display_name: "Interactive and Robust Mesh Booleans 2024-6"
+
+upstream:
+  source: git
+  url: https://github.com/gcherchi/InteractiveAndRobustMeshBooleans.git
+  ref: 7bd6c26
+  # resolved_commit is filled in by build.py at build time and recorded in bin/build-info.json
+
+build:
+  script: ./build.py
+  outputs:
+    - bin/iarmb_runner
+    - bin/build-info.json
+  default_mode: release
+
+entry:
+  kind: executable
+  command: ./bin/iarmb_runner
+  args:
+    - --request
+    - "{request}"
+    - --result
+    - "{result}"
+
+variants:
+  - id: base
+    internal: true
+    args: []
+    capabilities:
+      operations: [union, intersection, difference]
+      input_formats: [off, obj, stl]
+      requires_closed_meshes: true
+      accepts_self_intersections: false
+      accepts_non_manifold_inputs: false
+      supports_components: false
+      supports_variadic_booleans: false
+
+  - id: default
+    extends: base
+    label: "Default"
+    display_name: "Interactive and Robust Mesh Booleans 2024-6"
+    color: "#8D6E63"
+    args: []
+
+notes:
+  - "Paper: 'Interactive and Robust Mesh Booleans' (Cherchi, Pellacini, Attene, Livesu)"
+  - "API: booleanPipeline() from code/booleans.h — flat double coords + uint tris + uint per-tri labels"
+  - "BoolOp enum: UNION, INTERSECTION, SUBTRACTION (maps to difference), XOR"
+  - "External deps vendored in-tree: oneTBB, Cinolib, Indirect_Predicates, abseil-cpp"
+  - "Build uses header-includes-cpp unity pattern; only main.cpp is compiled directly"
+  - "Compile flags: /fp:strict (MSVC) or -frounding-math (GCC/Clang); AVX2 enabled"
+  - "Raw mesh format: indexed-tris-f64 (input and output)"
+  - "io_ms (load-mesh): file → flat double verts + int indices (runner_mesh_helpers::loadFromFileIndexed)"
+  - "import_ms (load-mesh): int indices → uint (trivial cast to match library's vector<uint>)"
+  - "operation_ms (boolean ops): booleanPipeline() call only"
+  - "export_ms (boolean ops): uint indices → int for saveToFileIndexed; excludes disk write"

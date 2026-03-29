@@ -1,0 +1,61 @@
+runner:
+  family: vtk
+  version: "9.6.0"
+  algorithm: boolean_polydata
+  runner_id: vtk-9.6.0-boolean_polydata
+  display_name: "VTK 9.6.0 BooleanOperationPolyDataFilter"
+
+upstream:
+  source: git
+  url: https://github.com/Kitware/VTK.git
+  ref: v9.6.0
+  # resolved_commit is filled in by build.py at build time and recorded in bin/build-info.json
+
+build:
+  script: ./build.py
+  outputs:
+    - bin/vtk_boolean_runner
+    - bin/build-info.json
+  default_mode: release
+
+entry:
+  kind: executable
+  command: ./bin/vtk_boolean_runner
+  args:
+    - --request
+    - "{request}"
+    - --result
+    - "{result}"
+
+variants:
+  - id: base
+    internal: true
+    args: []
+    capabilities:
+      operations:
+        - union
+        - intersection
+        - difference
+      input_formats: [off, obj, stl]
+      requires_closed_meshes: true
+      accepts_self_intersections: false
+      accepts_non_manifold_inputs: false
+      supports_components: true
+      supports_variadic_booleans: false
+
+  - id: default
+    extends: base
+    label: "Default"
+    display_name: "VTK 9.6.0 BooleanOperationPolyDataFilter"
+    color: "#064f8d"
+    args: []
+
+notes:
+  - "Filter: vtkBooleanOperationPolyDataFilter — surface-based boolean operations on vtkPolyData."
+  - "Requires closed, triangulated, manifold meshes. Preprocessing: vtkCleanPolyData + vtkTriangleFilter applied during import."
+  - "io_ms (load-mesh): file → indexed-tris-f64 via runner_mesh_helpers::loadFromFileIndexed."
+  - "import_ms (load-mesh): indexed-tris-f64 → vtkPolyData → vtkCleanPolyData → vtkTriangleFilter."
+  - "operation_ms (boolean ops): vtkBooleanOperationPolyDataFilter::Update() only."
+  - "export_ms (boolean ops): result vtkPolyData → indexed-tris-f64 via point/cell traversal; excludes disk write."
+  - "Empty result (0 cells) is treated as success — valid for disjoint inputs."
+  - "Shared VTK build: cloned and installed at ../vtk-install/ (runners/vtk/9.6.0/vtk-install/)."

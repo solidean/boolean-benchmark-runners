@@ -1,0 +1,6 @@
+{
+  "name": "geogram-runner-deps",
+  "version-string": "1.0",
+  "description": "Dependencies for the geogram boolean runner",
+  "dependencies": ["nlohmann-json"]
+}

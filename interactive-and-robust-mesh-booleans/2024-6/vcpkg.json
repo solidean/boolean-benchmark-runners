@@ -1,0 +1,8 @@
+{
+  "name": "iarmb-runner-deps",
+  "version-string": "1.0",
+  "description": "Dependencies for interactive-and-robust-mesh-booleans runner (TBB and cinolib are vendored in-tree)",
+  "dependencies": [
+    "nlohmann-json"
+  ]
+}

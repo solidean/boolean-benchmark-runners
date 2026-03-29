@@ -1,0 +1,10 @@
+{
+  "name": "mesh-arrangements-runner-deps",
+  "version-string": "1.0",
+  "description": "Dependencies for the mesh-arrangements-for-solid-geometry boolean runner",
+  "dependencies": [
+    "eigen3",
+    "cgal",
+    "nlohmann-json"
+  ]
+}

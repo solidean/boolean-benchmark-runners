@@ -1,0 +1,7 @@
+{
+  "name": "solidean-deps",
+  "version-string": "1.0",
+  "dependencies": [
+    "nlohmann-json"
+  ]
+}

@@ -1,0 +1,57 @@
+runner:
+  family: manifold
+  version: "3.4.0"
+  algorithm: boolean
+  runner_id: manifold-3.4.0-boolean
+  display_name: "Manifold 3.4.0 Boolean"
+
+upstream:
+  source: git
+  url: https://github.com/elalish/manifold.git
+  ref: v3.4.0
+  # resolved_commit is filled in by build.py at build time
+
+build:
+  script: ./build.py
+  outputs:
+    - bin/manifold_runner
+    - bin/build-info.json
+  default_mode: release
+
+entry:
+  kind: executable
+  command: ./bin/manifold_runner
+  args:
+    - --request
+    - "{request}"
+    - --result
+    - "{result}"
+
+variants:
+  - id: base
+    internal: true
+    args: []
+    capabilities:
+      operations: [union, intersection, difference]
+      input_formats: [off, obj, stl]
+      requires_closed_meshes: true
+      accepts_self_intersections: false
+      accepts_non_manifold_inputs: false
+      supports_components: true
+      supports_variadic_booleans: false
+
+  - id: default
+    extends: base
+    label: "Default"
+    display_name: "Manifold 3.4.0"
+    color: "#C1121F"
+    args: []
+
+notes:
+  - "Mesh type: manifold::Manifold"
+  - "Boolean ops: manifold::Manifold::Boolean(other, OpType::Add/Subtract/Intersect)"
+  - "Requires closed, manifold, non-self-intersecting meshes"
+  - "Raw mesh format: indexed-tris-f64 (via runner_mesh_helpers)"
+  - "io_ms (load-mesh): file → flat double verts + int indices (runner_mesh_helpers::loadFromFileIndexed)"
+  - "import_ms (load-mesh): flat f64 verts+indices → MeshGL64 → manifold::Manifold + Status() validation"
+  - "export_ms (boolean ops): manifold::Manifold::GetMeshGL64() — double vertex data extraction, excludes disk write"

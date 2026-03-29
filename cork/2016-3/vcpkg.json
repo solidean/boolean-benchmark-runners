@@ -1,0 +1,16 @@
+{
+  "name": "cork-runner-deps",
+  "version-string": "1.0",
+  "description": "Dependencies for cork boolean runner",
+  "dependencies": [
+    "nlohmann-json",
+    {
+      "name": "mpir",
+      "platform": "windows"
+    },
+    {
+      "name": "gmp",
+      "platform": "!windows"
+    }
+  ]
+}

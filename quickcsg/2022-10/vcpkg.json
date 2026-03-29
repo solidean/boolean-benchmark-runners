@@ -1,0 +1,9 @@
+{
+  "name": "quickcsg-runner-deps",
+  "version-string": "1.0",
+  "description": "Dependencies for the QuickCSG boolean runner",
+  "dependencies": [
+    "nlohmann-json",
+    "tbb"
+  ]
+}

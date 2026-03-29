@@ -1,0 +1,14 @@
+# Clangd
+.cache
+
+# Python
+__pycache__
+
+# Build artifacts
+bin/
+
+# CMake build directory
+build/
+
+# Downloaded upstream sources (re-cloned on demand by build.py)
+download/

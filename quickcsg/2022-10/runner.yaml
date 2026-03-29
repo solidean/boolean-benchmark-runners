@@ -1,0 +1,62 @@
+runner:
+  family: quickcsg
+  version: "2022-10"
+  algorithm: boolean
+  material_variant: null
+  runner_id: quickcsg-2022-10-boolean
+  display_name: "QuickCSG 2022-10 Boolean"
+
+upstream:
+  source: git
+  url: https://gitlab.inria.fr/quickcsg/quickcsg.git
+  ref: caff91954daf864da9d738d1d3b9ff2e8902568e
+  commit: caff91954daf864da9d738d1d3b9ff2e8902568e
+
+build:
+  script: ./build.py
+  outputs:
+    - bin/quickcsg_runner
+    - bin/build-info.json
+  default_mode: release
+
+entry:
+  kind: executable
+  command: ./bin/quickcsg_runner
+  args:
+    - --request
+    - "{request}"
+    - --result
+    - "{result}"
+
+variants:
+  - id: base
+    internal: true
+    args: []
+    capabilities:
+      operations: [union, intersection, difference]
+      input_formats: [off, obj, stl]
+      requires_closed_meshes: true
+      accepts_self_intersections: false
+      accepts_non_manifold_inputs: false
+      supports_components: true
+      supports_variadic_booleans: false
+
+  - id: default
+    extends: base
+    label: "Default"
+    display_name: "QuickCSG 2022-10"
+    color: "#9C27B0"
+    args: []
+
+notes:
+  - "Library: QuickCSG (mCSG) — N-solid boolean combinations via kd-tree + indicator vectors"
+  - "Reference: https://arxiv.org/abs/1706.01558 (Douze, Franco, Raffin 2017)"
+  - "Commit: caff91954daf864da9d738d1d3b9ff2e8902568e"
+  - "Built with ENABLE_TBB=1 (TBB threading), BWIDTH=1 (64-bit indicator vectors), double coordinates (no USE_FLOAT)"
+  - "Runner implements binary ops only (2 operands); QuickCSG itself supports N-ary"
+  - "Raw mesh format: indexed-tris-f64 (via runner_mesh_helpers)"
+  - "io_ms (load-mesh): file → flat double verts + int indices (runner_mesh_helpers::loadFromFileIndexed)"
+  - "import_ms (load-mesh): flat f64 verts+indices → mCSG internal mesh representation"
+  - "operation_ms (boolean ops): mCSG afterLoad() + makeFacets() — excludes tessellation"
+  - "export_ms (boolean ops): libtess polygon→triangle tessellation + result → flat f64 verts+int tris; excludes disk write"
+  - "NOTE: mCSG API is guessed from README; verify FIXMEs in src/main.cpp against mCSG.hpp"

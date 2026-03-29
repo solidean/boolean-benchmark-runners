@@ -1,0 +1,59 @@
+runner:
+  family: mesh-arrangements-for-solid-geometry
+  version: "2.6.0"
+  algorithm: boolean
+  material_variant: null
+  runner_id: mesh-arrangements-for-solid-geometry-2.6.0-boolean
+  display_name: "Mesh Arrangements for Solid Geometry 2.6.0"
+
+upstream:
+  source: git
+  url: https://github.com/libigl/libigl.git
+  ref: v2.6.0
+
+build:
+  script: ./build.py
+  outputs:
+    - bin/mesh_arrangements_runner
+    - bin/build-info.json
+  default_mode: release
+
+entry:
+  kind: executable
+  command: ./bin/mesh_arrangements_runner
+  args:
+    - --request
+    - "{request}"
+    - --result
+    - "{result}"
+
+variants:
+  - id: base
+    internal: true
+    args: []
+    capabilities:
+      operations: [union, intersection, difference]
+      input_formats: [off, obj, stl]
+      requires_closed_meshes: true
+      accepts_self_intersections: true
+      accepts_non_manifold_inputs: false
+      supports_components: false
+      supports_variadic_booleans: false
+
+  - id: default
+    extends: base
+    label: "Default"
+    display_name: "Mesh Arrangements for Solid Geometry 2.6.0"
+    color: "#607D8B"
+    args: []
+
+notes:
+  - "Paper: Zhou, Grinspun, Zorin, Jacobson — Mesh Arrangements for Solid Geometry (SIGGRAPH 2016)"
+  - "Implementation: igl::copyleft::cgal::mesh_boolean from libigl v2.6.0"
+  - "Mesh type: Eigen::MatrixXd (Vx3 f64 verts) + Eigen::MatrixXi (Fx3 int faces)"
+  - "Raw mesh format: indexed-tris-f64 (via runner_mesh_helpers)"
+  - "io_ms (load-mesh): file → flat double verts + int indices"
+  - "import_ms (load-mesh): flat f64 verts+indices → Eigen matrices"
+  - "operation_ms (boolean ops): mesh_boolean call only"
+  - "export_ms (boolean ops): Eigen matrices → flat f64 verts+indices, excludes disk write"
+  - "Requires closed manifold meshes; self-intersections handled via the arrangement construction"

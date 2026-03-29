@@ -1,0 +1,9 @@
+{
+  "name": "manifold-runner-deps",
+  "version-string": "1.0",
+  "description": "Dependencies for the manifold boolean runner (manifold itself is built via add_subdirectory)",
+  "dependencies": [
+    "nlohmann-json",
+    "clipper2"
+  ]
+}

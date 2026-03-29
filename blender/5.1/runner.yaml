@@ -1,0 +1,75 @@
+runner:
+  family: blender
+  version: "5.1"
+  algorithm: boolean
+  runner_id: blender-5.1-boolean
+  display_name: "Blender 5.1 Boolean Modifier"
+
+upstream:
+  source: archive
+  url: https://download.blender.org/release/Blender5.1/
+  version: 5.1.0
+  notes: "Platform-specific archives; SHA-256 verified against blender-5.1.0.sha256. See build.py for URLs."
+
+build:
+  script: ./build.py
+  outputs:
+    - bin/build-info.json
+  default_mode: release
+
+entry:
+  kind: python-uv
+  command: ./src/driver.py
+  args:
+    - --request
+    - "{request}"
+    - --result
+    - "{result}"
+
+variants:
+  - id: base
+    internal: true
+    args: []
+    capabilities:
+      operations: [union, intersection, difference]
+      input_formats: [obj]
+      requires_closed_meshes: false
+      accepts_self_intersections: true
+      accepts_non_manifold_inputs: true
+      supports_components: false
+      supports_variadic_booleans: false
+
+  - id: exact
+    extends: base
+    label: "Exact solver"
+    display_name: "Blender 5.1 Boolean (Exact)"
+    color: "#f4792b"
+    args: ["--solver", "EXACT"]
+
+  - id: fast
+    extends: base
+    label: "Fast solver"
+    display_name: "Blender 5.1 Boolean (Fast)"
+    color: "#ff9a5a"
+    args: ["--solver", "FLOAT"]
+
+  # - id: manifold
+  #   extends: base
+  #   label: "Manifold solver"
+  #   display_name: "Blender 5.1 Boolean (Manifold)"
+  #   args: ["--solver", "MANIFOLD"]
+
+notes:
+  - "Entry: driver.py locates the downloaded Blender binary in download/blender/ and launches it as a subprocess with --background --factory-startup --python src/runner.py."
+  - "Solver variants: EXACT (robust, BMesh-based exact solver), FLOAT (BVH-based, faster, less robust; renamed from FAST in Blender 4.x+), and MANIFOLD (fast, requires manifold inputs)."
+  - "Boolean op: bpy.types.Object Boolean Modifier applied via bpy.ops.object.modifier_apply."
+  - "Scene reset: bpy.ops.wm.read_factory_settings(use_empty=True) before each run."
+  - "Raw mesh format: OBJ via bpy.ops.wm.obj_import (load) and bpy.ops.wm.obj_export (output files)."
+  - "io_ms (load-mesh): bpy.ops.wm.obj_import — file read and parse into Blender scene objects."
+  - "import_ms (load-mesh): bpy.context.view_layer.update() — mesh geometry evaluation/commit."
+  - "operation_ms (boolean ops): bpy.ops.object.modifier_apply only; excludes lhs object duplication (glue)."
+  - "No export_ms: boolean results remain as Blender Objects in the SSA; disk write (obj_export) is untimed."
+  - "SSA: object names (strings) stored in a list; objects retrieved from bpy.data.objects by name."
+  - "lhs is duplicated (linked=False) before each boolean op to avoid mutating earlier SSA entries."
+  - "Additional knobs not yet exposed as variants: double_threshold (coincident geometry tolerance), use_self (non-manifold/self-overlap inputs), use_hole_tolerant (bad input coping)."
+  - "macOS not yet supported (DMG extraction requires hdiutil); Linux x64 and Windows x64/arm64 are supported."

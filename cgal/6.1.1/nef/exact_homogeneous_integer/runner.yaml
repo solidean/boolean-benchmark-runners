@@ -1,0 +1,67 @@
+runner:
+  family: cgal
+  version: "6.1.1"
+  algorithm: nef
+  material_variant: exact_homogeneous_integer
+  runner_id: cgal-6.1.1-nef-exact-homogeneous-integer
+  display_name: "CGAL 6.1.1 Nef (Extended_homogeneous<Exact_integer>)"
+
+upstream:
+  source: git
+  url: https://github.com/CGAL/cgal.git
+  ref: v6.1.1
+  # resolved_commit is filled in by build.py at build time and recorded in bin/build-info.json
+
+build:
+  script: ./build.py
+  outputs:
+    - bin/nef_runner
+    - bin/build-info.json
+  default_mode: release
+
+entry:
+  kind: executable
+  command: ./bin/nef_runner
+  args:
+    - --request
+    - "{request}"
+    - --result
+    - "{result}"
+
+variants:
+  - id: base
+    internal: true
+    args: []
+    capabilities:
+      operations:
+        - union
+        - intersection
+        - difference
+      input_formats: [off, obj, stl]
+      requires_closed_meshes: true
+      accepts_self_intersections: true
+      accepts_non_manifold_inputs: true
+      supports_components: true
+      supports_variadic_booleans: false
+
+  - id: regularized
+    extends: base
+    label: "Regularized (interior().closure() after each op)"
+    display_name: "CGAL 6.1.1 Nef (EH-EI, Reg)"
+    color: "#e6e600"
+    args: ["--regularize"]
+
+  - id: non_regularized
+    extends: base
+    label: "Non-regularized (no post-op regularization)"
+    display_name: "CGAL 6.1.1 Nef (EH-EI, Non-reg)"
+    color: "#bfbf00"
+    args: ["--no-regularize"]
+
+notes:
+  - "Kernel: CGAL::Extended_homogeneous<CGAL::Exact_integer> — the CGAL-recommended armored tank for Nef_polyhedron_3."
+  - "Variadic booleans are not supported: CGAL Nef has no native single-shot multi-operand form. Use iterated variants instead."
+  - "Raw mesh format: indexed-tris-f64 (normalised via in-memory OFF text string)."
+  - "io_ms (load-mesh): file → in-memory OFF text string. For .off: raw file bytes read into std::string. For .obj/.stl: parsed into polygon soup, serialised to OFF text. This is the io boundary; no Nef construction occurs here."
+  - "import_ms (load-mesh): OFF text string → Nef_polyhedron_3 via CGAL::OFF_to_nef_3 on a stringstream. Includes OFF text parsing but excludes file I/O."
+  - "export_ms (boolean ops): Nef_polyhedron_3 → indexed-tris-f64 via convert_nef_polyhedron_to_polygon_soup (triangulate=true) + homogeneous→double Cartesian conversion; excludes disk write."
