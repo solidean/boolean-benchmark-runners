@@ -11,7 +11,6 @@
 from __future__ import annotations
 
 import subprocess
-import sys
 from pathlib import Path
 
 import yaml
@@ -27,8 +26,8 @@ def find_repo_root() -> Path:
     return Path(__file__).resolve().parent
 
 
-def find_runner_yamls(runners_root: Path) -> list[Path]:
-    return sorted(runners_root.rglob("runner.yaml"))
+def find_runner_yamls(search_root: Path) -> list[Path]:
+    return sorted(p for p in search_root.rglob("runner.yaml") if "_common" not in p.parts)
 
 
 def build_runner(runner_yaml: Path) -> None:
@@ -53,22 +52,17 @@ def build_runner(runner_yaml: Path) -> None:
 
 def main() -> int:
     repo_root = find_repo_root()
-    runners_root = repo_root / "runners"
 
-    if not runners_root.exists():
-        print(f"error: missing runners directory: {runners_root}", file=sys.stderr)
-        return 1
-
-    runner_yamls = find_runner_yamls(runners_root)
+    runner_yamls = find_runner_yamls(repo_root)
     if not runner_yamls:
-        print("No runner.yaml files found under runners/. Nothing to do.")
+        print("No runner.yaml files found. Nothing to do.")
         return 0
 
     print(f"Found {len(runner_yamls)} runner(s).\n")
 
     failed: list[tuple[Path, Exception]] = []
     for runner_yaml in runner_yamls:
-        runner_id = runner_yaml.parent.relative_to(runners_root)
+        runner_id = runner_yaml.parent.relative_to(repo_root)
         print(f"=== {runner_id} ===")
         try:
             build_runner(runner_yaml)

@@ -19,7 +19,7 @@ def find_repo_root() -> Path:
 
 
 def get_vcpkg_paths(repo_root: Path) -> tuple[Path, Path]:
-    vcpkg_root = repo_root / "extern" / "vcpkg"
+    vcpkg_root = repo_root / "_common" / "vcpkg"
 
     if platform.system() == "Windows":
         vcpkg_exe = vcpkg_root / "vcpkg.exe"
@@ -51,15 +51,15 @@ def bootstrap_vcpkg(vcpkg_root: Path, vcpkg_exe: Path) -> None:
         raise RuntimeError(f"Bootstrap completed but vcpkg executable was not created: {vcpkg_exe}")
 
 
-def find_manifest_roots(runners_root: Path) -> list[Path]:
-    manifests = sorted(runners_root.rglob("vcpkg.json"))
-    roots = [manifest.parent for manifest in manifests]
+def find_manifest_roots(search_root: Path) -> list[Path]:
+    manifests = sorted(search_root.rglob("vcpkg.json"))
+    roots = [m.parent for m in manifests if "_common" not in m.parts]
     return roots
 
 
 def install_manifests(vcpkg_exe: Path, manifest_roots: list[Path]) -> None:
     if not manifest_roots:
-        print("No vcpkg.json files found under runners/. Nothing to do.")
+        print("No vcpkg.json files found. Nothing to do.")
         return
 
     print(f"Found {len(manifest_roots)} manifest(s). Prewarming dependencies...")
@@ -80,7 +80,6 @@ def install_manifests(vcpkg_exe: Path, manifest_roots: list[Path]) -> None:
 
 def main() -> int:
     repo_root = find_repo_root()
-    runners_root = repo_root / "runners"
     vcpkg_root, vcpkg_exe = get_vcpkg_paths(repo_root)
 
     if not vcpkg_root.exists():
@@ -88,12 +87,8 @@ def main() -> int:
         print("Did you run: git submodule update --init --recursive ?", file=sys.stderr)
         return 1
 
-    if not runners_root.exists():
-        print(f"error: missing runners directory: {runners_root}", file=sys.stderr)
-        return 1
-
     bootstrap_vcpkg(vcpkg_root, vcpkg_exe)
-    manifest_roots = find_manifest_roots(runners_root)
+    manifest_roots = find_manifest_roots(repo_root)
     install_manifests(vcpkg_exe, manifest_roots)
 
     print("\nDone.")
