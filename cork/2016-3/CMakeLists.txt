@@ -14,6 +14,7 @@ if(NOT DEFINED CORK_SOURCE_DIR OR NOT EXISTS "${CORK_SOURCE_DIR}")
   message(FATAL_ERROR "CORK_SOURCE_DIR must be set to the cork source tree.\n"
                        "Run build.py instead of invoking cmake directly.")
 endif()
+file(TO_CMAKE_PATH "${CORK_SOURCE_DIR}" CORK_SOURCE_DIR)
 
 # Glob all .cpp files under cork/src/ (excluding main entry points if any).
 # Cork's library sources live in src/ alongside the public header cork.h.
@@ -94,6 +95,7 @@ add_executable(cork_runner
 if(NOT DEFINED PROJECT_ROOT)
   message(FATAL_ERROR "PROJECT_ROOT must be passed by build.py via -DPROJECT_ROOT=<path>")
 endif()
+file(TO_CMAKE_PATH "${PROJECT_ROOT}" PROJECT_ROOT)
 set(COMMON_INCLUDE_DIR "${PROJECT_ROOT}/_common/cpp/include")
 
 # Cork's headers live in per-feature subdirectories (mesh/, math/, rawmesh/, …).

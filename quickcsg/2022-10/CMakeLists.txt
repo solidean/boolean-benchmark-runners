@@ -13,6 +13,7 @@ if(NOT DEFINED QUICKCSG_SOURCE_DIR OR NOT EXISTS "${QUICKCSG_SOURCE_DIR}")
   message(FATAL_ERROR "QUICKCSG_SOURCE_DIR must be set to the QuickCSG source tree.\n"
                        "Run build.py instead of invoking cmake directly.")
 endif()
+file(TO_CMAKE_PATH "${QUICKCSG_SOURCE_DIR}" QUICKCSG_SOURCE_DIR)
 
 # Glob top-level .cpp files only.
 # Subdirectories (python/, experiments/, distributed/, data/) contain only
@@ -58,6 +59,7 @@ add_executable(quickcsg_runner
 if(NOT DEFINED PROJECT_ROOT)
   message(FATAL_ERROR "PROJECT_ROOT must be passed by build.py via -DPROJECT_ROOT=<path>")
 endif()
+file(TO_CMAKE_PATH "${PROJECT_ROOT}" PROJECT_ROOT)
 set(COMMON_INCLUDE_DIR "${PROJECT_ROOT}/_common/cpp/include")
 
 target_include_directories(quickcsg_runner PRIVATE
