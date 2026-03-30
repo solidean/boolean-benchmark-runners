@@ -341,6 +341,10 @@ def main() -> int:
         "--force-download", action="store_true",
         help="Re-download and re-extract Blender even if download/blender/ exists."
     )
+    parser.add_argument(
+        "-y", "--accept-licenses", action="store_true",
+        help="Accept all licenses non-interactively.",
+    )
     args = parser.parse_args()
 
     if args.clean:

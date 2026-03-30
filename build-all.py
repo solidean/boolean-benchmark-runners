@@ -10,6 +10,7 @@
 # On Windows:    python -m uv run build-all.py   (or: uv run build-all.py if uv is on PATH)
 from __future__ import annotations
 
+import argparse
 import subprocess
 from pathlib import Path
 
@@ -30,7 +31,7 @@ def find_runner_yamls(search_root: Path) -> list[Path]:
     return sorted(p for p in search_root.rglob("runner.yaml") if "_common" not in p.parts)
 
 
-def build_runner(runner_yaml: Path) -> None:
+def build_runner(runner_yaml: Path, accept_licenses: bool = False) -> None:
     runner_dir = runner_yaml.parent
 
     with runner_yaml.open() as f:
@@ -47,10 +48,20 @@ def build_runner(runner_yaml: Path) -> None:
         print(f"  [skip] build script not found: {script_path}")
         return
 
-    run(["uv", "run", "--script", str(script_path)], cwd=runner_dir)
+    cmd = ["uv", "run", "--script", str(script_path)]
+    if accept_licenses:
+        cmd.append("-y")
+    run(cmd, cwd=runner_dir)
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description="Build all boolean-benchmark runners.")
+    parser.add_argument(
+        "-y", "--accept-licenses", action="store_true",
+        help="Accept all licenses non-interactively, including free non-commercial licenses",
+    )
+    args = parser.parse_args()
+
     repo_root = find_repo_root()
 
     runner_yamls = find_runner_yamls(repo_root)
@@ -65,7 +76,7 @@ def main() -> int:
         runner_id = runner_yaml.parent.relative_to(repo_root)
         print(f"=== {runner_id} ===")
         try:
-            build_runner(runner_yaml)
+            build_runner(runner_yaml, accept_licenses=args.accept_licenses)
         except subprocess.CalledProcessError as e:
             print(f"  [FAILED] exit code {e.returncode}")
             failed.append((runner_yaml, e))

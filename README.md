@@ -30,10 +30,29 @@ Capabilities are self-reported by the respective projects. They reflect what a m
 - [**I**] Stable under repeated/iterative operations: the result is usable for additional booleans without loss of information. Methods that output indexed float/double triangle meshes generally cannot claim this unless specifically designed for it.
 - [**S**] Supports self-intersections: the method must support some self-intersecting input meshes properly and by design.
 
+## Runner Folder Structure
+
+Each runner lives under `<family>/<version>/` (or `<family>/<version>/<variant>/`):
+
+```
+runner.yaml          # runner identity and runtime config (mandatory)
+build.py             # build script — run with: uv run build.py
+CMakeLists.txt       # CMake project (C++ runners)
+vcpkg.json           # vcpkg manifest declaring C++ dependencies
+src/main.cc          # adapter source code
+.gitignore           # ignores auto-created bin/ and download/
+bin/                 # auto-created: compiled executables, build-info.json
+download/            # auto-created: downloaded/cloned upstream sources
+```
+
+Only the `runner.yaml` is mandatory, the rest depends on the runner type. A common C++ setup is shown.
+
 ## Quickstart
 
-* `uv run bootstrap-vcpkg.py` (optional, pre-warms vcpkg, can take 60+ min cold)
-* `uv run build-all.py` (calls all individual build.py scripts, can take 30+ min cold)
+* `uv run build-all.py -y` builds all runners, accepting all licenses (can take 30+ min cold)
+  (`-y` means you accept all licenses, including the free non-commercial licenses of each runner;
+  omit `-y` to be prompted interactively where required)
+* `uv run bootstrap-vcpkg.py` (optional, pre-warms vcpkg packages for all runners, 60+ min cold)
 
 ## TODOs
 

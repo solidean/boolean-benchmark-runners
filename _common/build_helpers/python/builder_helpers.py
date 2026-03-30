@@ -95,7 +95,7 @@ def vcpkg_toolchain(project_root: Path) -> Path:
 # vcpkg bootstrap
 # ---------------------------------------------------------------------------
 
-def ensure_vcpkg_bootstrapped(project_root: Path) -> None:
+def ensure_vcpkg_bootstrapped(project_root: Path, runner_dir: Path | None = None) -> None:
     vr = vcpkg_root(project_root)
     if not vr.exists():
         raise RuntimeError(
@@ -106,18 +106,24 @@ def ensure_vcpkg_bootstrapped(project_root: Path) -> None:
     vcpkg_exe = vr / ("vcpkg.exe" if platform.system() == "Windows" else "vcpkg")
     if vcpkg_exe.exists():
         print(f"[skip] vcpkg already bootstrapped at {vcpkg_exe}")
-        return
-
-    print(f"Bootstrapping vcpkg at {vr} ...")
-    if platform.system() == "Windows":
-        bootstrap = vr / "bootstrap-vcpkg.bat"
-        run([str(bootstrap)], cwd=vr)
     else:
-        bootstrap = vr / "bootstrap-vcpkg.sh"
-        run(["bash", str(bootstrap)], cwd=vr)
+        print(f"Bootstrapping vcpkg at {vr} ...")
+        if platform.system() == "Windows":
+            bootstrap = vr / "bootstrap-vcpkg.bat"
+            run([str(bootstrap)], cwd=vr)
+        else:
+            bootstrap = vr / "bootstrap-vcpkg.sh"
+            run(["bash", str(bootstrap)], cwd=vr)
 
-    if not vcpkg_exe.exists():
-        raise RuntimeError(f"Bootstrap completed but vcpkg executable not found: {vcpkg_exe}")
+        if not vcpkg_exe.exists():
+            raise RuntimeError(f"Bootstrap completed but vcpkg executable not found: {vcpkg_exe}")
+
+    if runner_dir is not None and (runner_dir / "vcpkg.json").exists():
+        install_root = runner_dir / "build" / "vcpkg_installed"
+        print(f"Installing vcpkg packages for {runner_dir.name} ...")
+        run([str(vcpkg_exe), "install",
+             "--x-manifest-root", str(runner_dir),
+             "--x-install-root", str(install_root)])
 
 
 # ---------------------------------------------------------------------------

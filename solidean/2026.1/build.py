@@ -98,8 +98,12 @@ PLATFORM_INFO = {
 # License acceptance
 # ---------------------------------------------------------------------------
 
-def prompt_license_acceptance() -> None:
-    """Print the license URL and require the user to type 'Yes' to continue."""
+def prompt_license_acceptance(accept: bool = False) -> None:
+    """Print the license URL and require the user to type 'Yes' to continue.
+
+    If *accept* is True (i.e. the caller passed -y / --accept-licenses), the
+    interactive prompt is skipped and acceptance is recorded automatically.
+    """
     print()
     print("=" * 72)
     print("  Solidean Community License")
@@ -111,6 +115,12 @@ def prompt_license_acceptance() -> None:
     print(f"  Please review the full license before downloading:")
     print(f"    {LICENSE_URL}")
     print()
+    if accept:
+        print("  License accepted via -y / --accept-licenses flag.")
+        print("=" * 72)
+        print("[ok] License accepted.")
+        print()
+        return
     print("  Type 'Yes' (exactly) to accept and continue, or anything else to abort.")
     print("=" * 72)
     response = input("Accept license? ").strip().lower()
@@ -195,7 +205,7 @@ def download_solidean(info: dict, force: bool = False) -> str:
     return actual_sha256
 
 
-def acquire_solidean(force: bool = False) -> str:
+def acquire_solidean(force: bool = False, accept_licenses: bool = False) -> str:
     """Ensure the Solidean SDK is present. Returns the sha256 hex."""
     system = platform.system()
     if system not in PLATFORM_INFO:
@@ -215,7 +225,7 @@ def acquire_solidean(force: bool = False) -> str:
 
     # First download: require license acceptance
     if not DOWNLOAD_DIR.exists():
-        prompt_license_acceptance()
+        prompt_license_acceptance(accept=accept_licenses)
 
     return download_solidean(info, force=force)
 
@@ -280,6 +290,8 @@ def main() -> int:
                         help="Remove bin/ and build/ directories and exit")
     parser.add_argument("--force-download", action="store_true",
                         help="Re-download Solidean SDK even if download/solidean/ already exists")
+    parser.add_argument("-y", "--accept-licenses", action="store_true",
+                        help="Accept all licenses non-interactively")
     args = parser.parse_args()
 
     if args.clean:
@@ -290,10 +302,10 @@ def main() -> int:
         return 0
 
     # Step 1: acquire Solidean SDK (with license prompt on first download)
-    sha256 = acquire_solidean(force=args.force_download)
+    sha256 = acquire_solidean(force=args.force_download, accept_licenses=args.accept_licenses)
 
     # Step 2: ensure vcpkg is bootstrapped
-    bh.ensure_vcpkg_bootstrapped(project_root=PROJECT_ROOT)
+    bh.ensure_vcpkg_bootstrapped(project_root=PROJECT_ROOT, runner_dir=RUNNER_DIR)
 
     # Step 3: build
     cmake_build(args.mode)

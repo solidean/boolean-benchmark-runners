@@ -143,6 +143,8 @@ def main() -> int:
                         help="Remove bin/ and build/ directories and exit")
     parser.add_argument("--force-download", action="store_true",
                         help="Re-clone manifold even if download/manifold/ already exists")
+    parser.add_argument("-y", "--accept-licenses", action="store_true",
+                        help="Accept all licenses non-interactively")
     args = parser.parse_args()
 
     if args.clean:
@@ -153,7 +155,7 @@ def main() -> int:
         return 0
 
     # Step 1: ensure vcpkg is bootstrapped
-    bh.ensure_vcpkg_bootstrapped(project_root=PROJECT_ROOT)
+    bh.ensure_vcpkg_bootstrapped(project_root=PROJECT_ROOT, runner_dir=RUNNER_DIR)
 
     # Step 2: acquire upstream
     clone_manifold(force=args.force_download)
