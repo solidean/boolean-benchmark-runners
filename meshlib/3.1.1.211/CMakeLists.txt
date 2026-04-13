@@ -6,36 +6,46 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 # ---------------------------------------------------------------------------
-# MeshLib — built from source via add_subdirectory.
-# MESHLIB_SOURCE_DIR is set by build.py via -DMESHLIB_SOURCE_DIR=<path>.
+# MeshLib — pre-built in step 1 (see build.py).
+# MESHLIB_SOURCE_DIR  = MeshLib source tree (for headers)
+# MESHLIB_BUILD_DIR   = MeshLib cmake build directory (for libraries)
 # ---------------------------------------------------------------------------
-if(NOT DEFINED MESHLIB_SOURCE_DIR OR NOT EXISTS "${MESHLIB_SOURCE_DIR}/CMakeLists.txt")
-  message(FATAL_ERROR "MESHLIB_SOURCE_DIR must be set to the MeshLib source tree.\n"
+if(NOT DEFINED MESHLIB_SOURCE_DIR OR NOT EXISTS "${MESHLIB_SOURCE_DIR}/source/MRMesh")
+  message(FATAL_ERROR "MESHLIB_SOURCE_DIR must point to the MeshLib source tree.\n"
+                       "Run build.py instead of invoking cmake directly.")
+endif()
+if(NOT DEFINED MESHLIB_BUILD_DIR)
+  message(FATAL_ERROR "MESHLIB_BUILD_DIR must point to the MeshLib build directory.\n"
                        "Run build.py instead of invoking cmake directly.")
 endif()
 
-# Disable MeshLib extras we don't need.
-# NOTE: these option names are best-effort guesses from the MeshLib CMakeLists.
-# Adjust once we have the actual source to inspect.
-set(MESHLIB_BUILD_MRVIEWER   OFF CACHE BOOL "" FORCE)
-set(MESHLIB_BUILD_PYTHON     OFF CACHE BOOL "" FORCE)
-set(MESHLIB_BUILD_MRCUDA     OFF CACHE BOOL "" FORCE)
-set(MESHLIB_BUILD_VOXELS     OFF CACHE BOOL "" FORCE)
-set(MRMESH_NO_PYTHON         ON  CACHE BOOL "" FORCE)
-set(MRMESH_NO_VOXEL          ON  CACHE BOOL "" FORCE)
-set(MRMESH_NO_GLTF           ON  CACHE BOOL "" FORCE)
-set(MRMESH_NO_DICOM          ON  CACHE BOOL "" FORCE)
-set(MRMESH_NO_JPEG           ON  CACHE BOOL "" FORCE)
-set(MRMESH_NO_PNG            ON  CACHE BOOL "" FORCE)
-set(MRMESH_NO_E57            ON  CACHE BOOL "" FORCE)
-set(MRMESH_NO_XML            ON  CACHE BOOL "" FORCE)
-set(MRMESH_NO_LAS            ON  CACHE BOOL "" FORCE)
-set(BUILD_TESTING             OFF CACHE BOOL "" FORCE)
+# Create an imported target for the pre-built MRMesh shared library.
+add_library(MRMesh SHARED IMPORTED)
 
-add_subdirectory("${MESHLIB_SOURCE_DIR}" "${CMAKE_BINARY_DIR}/meshlib_build" EXCLUDE_FROM_ALL)
+# Find the .so / .dll
+file(GLOB _mrmesh_lib "${MESHLIB_BUILD_DIR}/bin/libMRMesh.so*")
+if(NOT _mrmesh_lib)
+  file(GLOB _mrmesh_lib "${MESHLIB_BUILD_DIR}/bin/MRMesh.dll")
+endif()
+if(NOT _mrmesh_lib)
+  message(FATAL_ERROR "Cannot find libMRMesh in ${MESHLIB_BUILD_DIR}/bin/")
+endif()
+list(GET _mrmesh_lib 0 _mrmesh_lib_path)
+set_target_properties(MRMesh PROPERTIES
+  IMPORTED_LOCATION "${_mrmesh_lib_path}"
+  IMPORTED_NO_SONAME TRUE
+)
 
-# Dependencies — provided by vcpkg (see build.py)
+# MeshLib headers: source/MRMesh, source/MRPch, and source/ (for MRMesh/MRMeshFwd.h style includes)
+target_include_directories(MRMesh INTERFACE
+  "${MESHLIB_SOURCE_DIR}/source"
+  "${MESHLIB_SOURCE_DIR}/source/MRMesh"
+  "${MESHLIB_SOURCE_DIR}/source/MRPch"
+)
+
+# Dependencies — provided by vcpkg
 find_package(nlohmann_json CONFIG REQUIRED)
+find_package(parallel-hashmap CONFIG REQUIRED)
 
 # ---------------------------------------------------------------------------
 # Runner executable
@@ -54,11 +64,16 @@ target_include_directories(meshlib_runner PRIVATE
   ${COMMON_INCLUDE_DIR}
 )
 
-# NOTE: The MeshLib CMake target name is likely "MRMesh".
-# Adjust if the actual target name differs once we build from source.
 target_link_libraries(meshlib_runner PRIVATE
   MRMesh
   nlohmann_json::nlohmann_json
 )
 
+# Ensure the runner can find libMRMesh.so at runtime
+set_target_properties(meshlib_runner PROPERTIES
+  BUILD_RPATH "${MESHLIB_BUILD_DIR}/bin"
+  INSTALL_RPATH "$ORIGIN"
+)
+
 message(STATUS "meshlib_runner configured — MESHLIB_SOURCE_DIR: ${MESHLIB_SOURCE_DIR}")
+message(STATUS "  MRMesh library: ${_mrmesh_lib_path}")
