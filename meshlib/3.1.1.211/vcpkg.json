@@ -1,0 +1,8 @@
+{
+  "name": "meshlib-runner-deps",
+  "version-string": "1.0",
+  "description": "Dependencies for the MeshLib boolean runner (MeshLib itself is built via add_subdirectory)",
+  "dependencies": [
+    "nlohmann-json"
+  ]
+}

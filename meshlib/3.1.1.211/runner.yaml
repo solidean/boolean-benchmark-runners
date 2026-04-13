@@ -1,0 +1,57 @@
+runner:
+  family: meshlib
+  version: "3.1.1.211"
+  algorithm: boolean
+  runner_id: meshlib-3.1.1.211-boolean
+  display_name: "MeshLib 3.1.1.211 Boolean"
+
+upstream:
+  source: git
+  url: https://github.com/MeshInspector/MeshLib.git
+  ref: v3.1.1.211
+  # resolved_commit is filled in by build.py at build time
+
+build:
+  script: ./build.py
+  outputs:
+    - bin/meshlib_runner
+    - bin/build-info.json
+  default_mode: release
+
+entry:
+  kind: executable
+  command: ./bin/meshlib_runner
+  args:
+    - --request
+    - "{request}"
+    - --result
+    - "{result}"
+
+variants:
+  - id: base
+    internal: true
+    args: []
+    capabilities:
+      operations: [union, intersection, difference]
+      input_formats: [off, obj, stl]
+      requires_closed_meshes: false
+      accepts_self_intersections: false
+      accepts_non_manifold_inputs: false
+      supports_components: true
+      supports_variadic_booleans: false
+
+  - id: default
+    extends: base
+    label: "Default"
+    display_name: "MeshLib 3.1.1.211"
+    color: "#2D6A4F"
+    args: []
+
+notes:
+  - "Mesh type: MR::Mesh (float coordinates internally)"
+  - "Boolean ops: MR::boolean(meshA, meshB, MR::BooleanOperation::{Union,Intersection,DifferenceAB})"
+  - "Does not strictly require closed meshes, but open meshes may cause boolean failures"
+  - "Raw mesh format: indexed-tris-f64 (via runner_mesh_helpers), converted to float for MeshLib"
+  - "io_ms (load-mesh): file -> flat double verts + int indices (runner_mesh_helpers::loadFromFileIndexed)"
+  - "import_ms (load-mesh): flat f64 verts+indices -> MR::Mesh::fromTriangles (includes double->float conversion)"
+  - "export_ms (boolean ops): MR::Mesh -> flat double verts + int tris (includes float->double conversion, excludes disk write)"
