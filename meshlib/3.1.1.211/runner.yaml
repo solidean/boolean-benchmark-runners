@@ -44,7 +44,7 @@ variants:
     extends: base
     label: "Default"
     display_name: "MeshLib 3.1.1.211"
-    color: "#2D6A4F"
+    color: "#5a3fba"
     args: []
 
 notes:
