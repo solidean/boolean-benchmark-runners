@@ -12,6 +12,11 @@
 //   - printing per-run progress to stderr
 //   - writing the result JSON to cfg.result_path
 //
+// The result file is also flushed periodically during the run loop (every
+// ~10s) so that if the process is killed by the meta-runner's watchdog the
+// completed cases are still recoverable on disk. Writes go through a
+// .tmp file + rename so a kill mid-flush cannot leave a partial JSON.
+//
 // Template parameters:
 //   ConfigT     — must be (or derive from) runner_utils::Config
 //   ExecuteRun  — callable: (ConfigT const& cfg, json const& run_entry) -> json
@@ -30,6 +35,8 @@
 
 #include <nlohmann/json.hpp>
 
+#include <chrono>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <string>
@@ -40,6 +47,8 @@ template <typename ConfigT, typename ExecuteRun>
 int run_main_loop(ConfigT const& cfg, ExecuteRun&& execute_run, nlohmann::json extra_res_fields = {})
 {
     using json = nlohmann::json;
+    using clock = std::chrono::steady_clock;
+    constexpr auto flush_interval = std::chrono::seconds(10);
 
     // -----------------------------------------------------------------------
     // Load request
@@ -70,22 +79,46 @@ int run_main_loop(ConfigT const& cfg, ExecuteRun&& execute_run, nlohmann::json e
     res["runs"] = json::array();
 
     // -----------------------------------------------------------------------
+    // Atomic result writer: serialize to <result_path>.tmp then rename.
+    // Returns true on success; logs and returns false on failure.
+    // -----------------------------------------------------------------------
+    auto write_result = [&](bool fatal_on_error) -> bool
+    {
+        std::string const tmp_path = cfg.result_path + ".tmp";
+        try
+        {
+            {
+                std::ofstream f(tmp_path);
+                if (!f.is_open())
+                    throw std::runtime_error("Cannot open result path for writing: " + tmp_path);
+                f << res.dump(2) << "\n";
+            }
+            std::filesystem::rename(tmp_path, cfg.result_path);
+            return true;
+        }
+        catch (std::exception const& e)
+        {
+            if (fatal_on_error)
+                std::cerr << "[fatal] Failed to write result: " << e.what() << "\n";
+            else
+                std::cerr << "[warn] Failed to flush partial result: " << e.what() << "\n";
+            std::error_code ec;
+            std::filesystem::remove(tmp_path, ec);
+            return false;
+        }
+    };
+
+    // -----------------------------------------------------------------------
     // Execute runs
     // -----------------------------------------------------------------------
     if (!req.contains("runs") || !req["runs"].is_array())
     {
         std::cerr << "[fatal] Request missing 'runs' array.\n";
-        try
-        {
-            std::ofstream f(cfg.result_path);
-            f << res.dump(2) << "\n";
-        }
-        catch (...)
-        {
-        }
+        write_result(false);
         return 1;
     }
 
+    auto last_flush = clock::now();
     for (auto& run_entry : req["runs"])
     {
         std::string const run_id = run_entry.at("case_id").get<std::string>();
@@ -98,23 +131,20 @@ int run_main_loop(ConfigT const& cfg, ExecuteRun&& execute_run, nlohmann::json e
         std::string const status = run_result["status"];
         std::cerr << "      → " << status << "  (" << run_result["duration_ms"].get<double>() << " ms total)\n";
         res["runs"].push_back(std::move(run_result));
+
+        auto const now = clock::now();
+        if (now - last_flush >= flush_interval)
+        {
+            write_result(false);
+            last_flush = clock::now();
+        }
     }
 
     // -----------------------------------------------------------------------
-    // Write result
+    // Final write
     // -----------------------------------------------------------------------
-    try
-    {
-        std::ofstream f(cfg.result_path);
-        if (!f.is_open())
-            throw std::runtime_error("Cannot open result path for writing: " + cfg.result_path);
-        f << res.dump(2) << "\n";
-    }
-    catch (std::exception const& e)
-    {
-        std::cerr << "[fatal] Failed to write result: " << e.what() << "\n";
+    if (!write_result(true))
         return 1;
-    }
 
     return 0;
 }

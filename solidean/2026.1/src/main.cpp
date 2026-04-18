@@ -96,8 +96,10 @@ static std::shared_ptr<solidean::Mesh> apply_bool_op(solidean::Mesh const& lhs,
 // Save helper — converts float32 SSA mesh to double indexed for OBJ output
 // ---------------------------------------------------------------------------
 
-static void save_ssa_mesh(solidean::Mesh const& mesh, std::string const& path,
-                          solidean::ExactArithmetic& arith, double& out_export_ms)
+static void save_ssa_mesh(solidean::Mesh const& mesh,
+                          std::string const& path,
+                          solidean::ExactArithmetic& arith,
+                          double& out_export_ms)
 {
     Timer op_timer;
     auto blob = g_ctx->execute( //
@@ -195,8 +197,8 @@ static json execute_run(runner_utils::Config const& /*cfg*/, json const& run_req
                     auto t_span = solidean::span<solidean::idxtri>(         //
                         reinterpret_cast<solidean::idxtri*>(tris_i.data()), //
                         tris_i.size() / 3);
-                    auto mesh = g_ctx->createMeshFromIndexedTrianglesF32(v_span, t_span, *arith,
-                                                                         solidean::MeshType::Solid);
+                    auto mesh
+                        = g_ctx->createMeshFromIndexedTrianglesF32(v_span, t_span, *arith, solidean::MeshType::Solid);
                     double const import_ms = import_timer.elapsed_ms();
 
                     // Disk write — not timed
@@ -255,7 +257,13 @@ static json execute_run(runner_utils::Config const& /*cfg*/, json const& run_req
                 op_res["status"] = "unsupported";
                 op_res["total_ms"] = 0.0;
                 op_res["error"] = e.what();
-                ops_result.push_back(op_res);
+                failed = true;
+            }
+            catch (solidean::exception const& e)
+            {
+                op_res["status"] = "crash";
+                op_res["total_ms"] = op_total_timer.elapsed_ms();
+                op_res["error"] = e.what();
                 failed = true;
             }
             catch (std::exception const& e)
