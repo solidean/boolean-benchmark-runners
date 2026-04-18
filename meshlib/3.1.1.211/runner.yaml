@@ -50,7 +50,6 @@ variants:
 notes:
   - "Mesh type: MR::Mesh (float coordinates internally)"
   - "Boolean ops: MR::boolean(meshA, meshB, MR::BooleanOperation::{Union,Intersection,DifferenceAB})"
-  - "Does not strictly require closed meshes, but open meshes may cause boolean failures"
   - "Raw mesh format: indexed-tris-f64 (via runner_mesh_helpers), converted to float for MeshLib"
   - "io_ms (load-mesh): file -> flat double verts + int indices (runner_mesh_helpers::loadFromFileIndexed)"
   - "import_ms (load-mesh): flat f64 verts+indices -> MR::Mesh::fromTriangles (includes double->float conversion)"
