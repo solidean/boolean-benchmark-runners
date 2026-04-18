@@ -281,6 +281,11 @@ class _UnsupportedOp(Exception):
 # Main
 # ---------------------------------------------------------------------------
 
+# Matches the C++ runner_utils::run_main_loop flush cadence so the meta-runner's
+# try_parse_partial can recover completed runs after a kill (timeout/OOM).
+FLUSH_INTERVAL_S = 10.0
+
+
 def main() -> int:
     request_path, result_path, solver = parse_args()
 
@@ -295,9 +300,42 @@ def main() -> int:
         print(f"[error] Failed to read request file: {e}", file=sys.stderr)
         return 1
 
-    runs_req: list = request.get("runs", [])
-    runs_res: list = []
+    # Build result envelope upfront; runs are appended in place so intermediate
+    # flushes always see the latest state.
+    result: dict = {
+        "kind":    request.get("kind", "boolean-benchmark"),
+        "version": request.get("version", 1),
+        "id":      request.get("id", ""),
+        "runs":    [],
+    }
+    runs_res: list = result["runs"]
 
+    result_path_obj = Path(result_path)
+    tmp_path_obj = Path(result_path + ".tmp")
+    result_path_obj.parent.mkdir(parents=True, exist_ok=True)
+
+    def write_result(fatal: bool) -> bool:
+        """Atomic result writer: dump to <result>.tmp then os.replace() into place."""
+        try:
+            with open(tmp_path_obj, "w", encoding="utf-8") as f:
+                json.dump(result, f, indent=2)
+                f.write("\n")
+            tmp_path_obj.replace(result_path_obj)
+            return True
+        except Exception as e:
+            if fatal:
+                print(f"[fatal] Failed to write result: {e}", file=sys.stderr)
+            else:
+                print(f"[warn] Failed to flush partial result: {e}", file=sys.stderr)
+            try:
+                tmp_path_obj.unlink(missing_ok=True)
+            except Exception:
+                pass
+            return False
+
+    runs_req: list = request.get("runs", [])
+
+    last_flush = time.monotonic()
     for run_req in runs_req:
         case_id = run_req["case_id"]
         print(f"[run] {case_id}", flush=True)
@@ -305,20 +343,12 @@ def main() -> int:
         run_res["case_id"] = case_id
         runs_res.append(run_res)
 
-    result = {
-        "kind":    request.get("kind", "boolean-benchmark"),
-        "version": request.get("version", 1),
-        "id":      request.get("id", ""),
-        "runs":    runs_res,
-    }
+        now = time.monotonic()
+        if now - last_flush >= FLUSH_INTERVAL_S:
+            write_result(fatal=False)
+            last_flush = time.monotonic()
 
-    # Write result
-    try:
-        Path(result_path).parent.mkdir(parents=True, exist_ok=True)
-        with open(result_path, "w", encoding="utf-8") as f:
-            json.dump(result, f, indent=2)
-    except Exception as e:
-        print(f"[error] Failed to write result file: {e}", file=sys.stderr)
+    if not write_result(fatal=True):
         return 1
 
     print(f"[blender runner] wrote result to {result_path}", flush=True)
