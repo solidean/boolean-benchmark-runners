@@ -8,15 +8,19 @@
 """
 build.py — Runner build script for meshlib/3.1.1.211/boolean
 
-Two-step build:
-  1. Build MeshLib from source as a standalone cmake project (produces libMRMesh.so).
-     All MeshLib dependencies (Boost, Eigen3, fmt, spdlog, TBB, etc.) are provided
-     via vcpkg.
-  2. Build the runner adapter (meshlib_runner) linking against the MeshLib build.
+Steps:
+  1. Download + extract the prebuilt MeshLib archive from the MeshLib GitHub
+     release page into download/meshlib/ (vcpkg-style layout).
+  2. Bootstrap vcpkg (near-no-op: no external deps — all are bundled).
+  3. Configure + build the runner against the prebuilt layout.
+  4. Copy libMRMesh.so* + bundled transitive .so files into bin/ so the runner
+     is self-contained when launched by the benchmark orchestrator.
+  5. Write bin/build-info.json.
 
 Prerequisites:
-  - git, cmake >= 3.20, C++20 compiler
-  - extern/vcpkg submodule initialised
+  - python 3.11+
+  - cmake >= 3.20
+  - A C++20 compiler
 
 Usage:
   ./build.py --mode release    # default
@@ -28,8 +32,14 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import hashlib
+import os
+import platform
 import shutil
 import sys
+import tarfile
+import urllib.request
+import zipfile
 from pathlib import Path
 
 
@@ -56,106 +66,187 @@ import builder_helpers as bh  # noqa: E402
 # Constants
 # ---------------------------------------------------------------------------
 
+MESHLIB_VERSION = "3.1.1.211"
+RELEASE_BASE    = f"https://github.com/MeshInspector/Meshlib/releases/download/v{MESHLIB_VERSION}"
+
 DOWNLOAD_DIR       = RUNNER_DIR / "download"
 BUILD_DIR          = RUNNER_DIR / "build"
 BIN_DIR            = RUNNER_DIR / "bin"
-MESHLIB_CLONE      = DOWNLOAD_DIR / "meshlib"
-MESHLIB_BUILD_DIR  = BUILD_DIR / "meshlib"
+MESHLIB_DIR        = DOWNLOAD_DIR / "meshlib"
 RUNNER_BUILD_DIR   = BUILD_DIR / "runner"
 
-MESHLIB_GIT_URL = "https://github.com/MeshInspector/MeshLib.git"
-MESHLIB_TAG     = "v3.1.1.211"
+# Maps (system, machine) → archive metadata.
+# machine values from platform.machine(): x86_64, AMD64
+_PLATFORM_ARCHIVES: dict[tuple[str, str], dict[str, str]] = {
+    ("Linux",   "x86_64"): {
+        "archive_name": f"meshlib_v{MESHLIB_VERSION}_linux-vcpkg-x64.tar.xz",
+        "url":          f"{RELEASE_BASE}/meshlib_v{MESHLIB_VERSION}_linux-vcpkg-x64.tar.xz",
+    },
+    ("Windows", "AMD64"): {
+        "archive_name": f"MeshLibDist_v{MESHLIB_VERSION}.zip",
+        "url":          f"{RELEASE_BASE}/MeshLibDist_v{MESHLIB_VERSION}.zip",
+    },
+    ("Windows", "x86_64"): {
+        "archive_name": f"MeshLibDist_v{MESHLIB_VERSION}.zip",
+        "url":          f"{RELEASE_BASE}/MeshLibDist_v{MESHLIB_VERSION}.zip",
+    },
+}
+
+
+def _detect_archive() -> dict[str, str]:
+    system  = platform.system()
+    machine = platform.machine()
+    info = _PLATFORM_ARCHIVES.get((system, machine))
+    if info is None:
+        print(
+            f"[error] Unsupported platform: system={system!r} machine={machine!r}.\n"
+            "Supported: Linux x86_64, Windows AMD64/x86_64. "
+            "Other platforms TODO.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    return info
+
+
+# ---------------------------------------------------------------------------
+# Download + extract helpers (ported from runners/blender/5.1/build.py)
+# ---------------------------------------------------------------------------
+
+def _sha256_file(path: Path) -> str:
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _download(url: str, dest: Path) -> None:
+    print(f"Downloading {url} ...", flush=True)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+
+    req = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:148.0) "
+                "Gecko/20100101 Firefox/148.0"
+            ),
+            "Accept": "*/*",
+        },
+    )
+
+    with urllib.request.urlopen(req) as resp, open(dest, "wb") as f:
+        shutil.copyfileobj(resp, f)
+
+    print(f"  → saved to {dest}", flush=True)
+
+
+def _common_prefix(names: list[str]) -> str | None:
+    """Return the single top-level directory shared by all entries, or None."""
+    tops = {n.split("/")[0] for n in names if n.strip()}
+    if len(tops) == 1:
+        return tops.pop()
+    return None
+
+
+def _extract_zip_stripped(zf: "zipfile.ZipFile", dest: Path) -> None:
+    names  = zf.namelist()
+    prefix = _common_prefix(names)
+    strip  = (prefix + "/") if prefix else ""
+    for member in zf.infolist():
+        rel = member.filename
+        if strip and rel.startswith(strip):
+            rel = rel[len(strip):]
+        if not rel:
+            continue
+        target = dest / rel
+        if member.is_dir():
+            target.mkdir(parents=True, exist_ok=True)
+        else:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            with zf.open(member) as src, open(target, "wb") as dst:
+                shutil.copyfileobj(src, dst)
+
+
+def _extract_tar_stripped(tf: "tarfile.TarFile", dest: Path) -> None:
+    names  = [m.name for m in tf.getmembers()]
+    prefix = _common_prefix(names)
+    strip  = (prefix + "/") if prefix else ""
+    for member in tf.getmembers():
+        rel = member.name
+        if strip and rel.startswith(strip):
+            rel = rel[len(strip):]
+        if not rel:
+            continue
+        target = dest / rel
+        if member.isdir():
+            target.mkdir(parents=True, exist_ok=True)
+        elif member.isfile():
+            target.parent.mkdir(parents=True, exist_ok=True)
+            with tf.extractfile(member) as src, open(target, "wb") as dst:  # type: ignore[union-attr]
+                shutil.copyfileobj(src, dst)
+            if platform.system() != "Windows":
+                target.chmod(member.mode)
+        elif member.issym():
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if target.exists() or target.is_symlink():
+                target.unlink()
+            target.symlink_to(member.linkname)
+
+
+def _extract_archive(archive: Path, dest: Path) -> None:
+    """Extract archive to dest, stripping the single top-level directory."""
+    name = archive.name.lower()
+    if name.endswith(".zip"):
+        with zipfile.ZipFile(archive, "r") as zf:
+            _extract_zip_stripped(zf, dest)
+    elif name.endswith(".tar.xz") or name.endswith(".tar.gz") or name.endswith(".tar.bz2"):
+        with tarfile.open(archive, "r:*") as tf:
+            _extract_tar_stripped(tf, dest)
+    else:
+        raise RuntimeError(f"Unknown archive format: {archive}")
 
 
 # ---------------------------------------------------------------------------
 # Acquisition
 # ---------------------------------------------------------------------------
 
-def clone_meshlib(force: bool = False) -> None:
-    if MESHLIB_CLONE.exists():
-        if force:
-            print(f"[force] Removing existing MeshLib clone at {MESHLIB_CLONE}")
-            shutil.rmtree(MESHLIB_CLONE)
-        else:
-            print(f"[skip] MeshLib already present at {MESHLIB_CLONE}")
-            return
+def acquire_meshlib(force: bool = False) -> tuple[str, str]:
+    """
+    Ensure the prebuilt MeshLib archive is downloaded and extracted to
+    download/meshlib/. Returns (archive_url, sha256_hex).
+    """
+    info = _detect_archive()
+    archive_url  = info["url"]
+    archive_name = info["archive_name"]
 
     DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
-    print(f"Cloning MeshLib {MESHLIB_TAG} from {MESHLIB_GIT_URL} ...")
-    bh.run([
-        "git", "clone",
-        "--depth", "1",
-        "--branch", MESHLIB_TAG,
-        MESHLIB_GIT_URL,
-        str(MESHLIB_CLONE),
-    ])
+    archive_local = DOWNLOAD_DIR / archive_name
+
+    if MESHLIB_DIR.exists() and not force:
+        print(f"[skip] MeshLib already extracted at {MESHLIB_DIR}", flush=True)
+        sha = _sha256_file(archive_local) if archive_local.exists() else "<unknown>"
+        return archive_url, sha
+
+    _download(archive_url, archive_local)
+
+    sha256 = _sha256_file(archive_local)
+    print(f"  SHA-256: {sha256}", flush=True)
+
+    if MESHLIB_DIR.exists():
+        print(f"[replace] Removing existing extraction at {MESHLIB_DIR}", flush=True)
+        shutil.rmtree(MESHLIB_DIR)
+    MESHLIB_DIR.mkdir(parents=True, exist_ok=True)
+
+    print(f"Extracting {archive_local} → {MESHLIB_DIR} ...", flush=True)
+    _extract_archive(archive_local, MESHLIB_DIR)
+    print(f"[ok] MeshLib extracted to {MESHLIB_DIR}", flush=True)
+
+    return archive_url, sha256
 
 
 # ---------------------------------------------------------------------------
-# Step 1: Build MeshLib as a standalone project
-# ---------------------------------------------------------------------------
-
-def build_meshlib(mode: str) -> None:
-    cmake_build_type = "Release" if mode == "release" else "Debug"
-    MESHLIB_BUILD_DIR.mkdir(parents=True, exist_ok=True)
-
-    vcpkg_toolchain = bh.vcpkg_toolchain(PROJECT_ROOT)
-
-    # Configure MeshLib — point cmake at the MeshLib source tree directly.
-    # Provide all deps via vcpkg and disable everything except MRMesh.
-    bh.run([
-        "cmake",
-        "-S", str(MESHLIB_CLONE),
-        "-B", str(MESHLIB_BUILD_DIR),
-        f"-DCMAKE_TOOLCHAIN_FILE={vcpkg_toolchain}",
-        f"-DCMAKE_BUILD_TYPE={cmake_build_type}",
-        # Use vcpkg for dependencies (affects how libzip is found, etc.)
-        "-DMESHLIB_USE_VCPKG=ON",
-        # Override MeshLib's default triplet (it defaults to x64-windows-meshlib)
-        "-DVCPKG_TARGET_TRIPLET=x64-linux",
-        # Tell vcpkg where our manifest is (so it finds our vcpkg.json with all deps)
-        f"-DVCPKG_MANIFEST_DIR={RUNNER_DIR}",
-        # MeshLib's CMake doesn't include GNUInstallDirs in the vcpkg branch
-        "-DCMAKE_INSTALL_INCLUDEDIR=include",
-        "-DCMAKE_INSTALL_LIBDIR=lib",
-        # Disable precompiled headers
-        "-DMR_PCH=OFF",
-        # Disable all optional components
-        "-DMESHLIB_BUILD_MRVIEWER=OFF",
-        "-DMESHLIB_BUILD_MESHVIEWER=OFF",
-        "-DMESHLIB_PYTHON_SUPPORT=OFF",
-        "-DMESHLIB_BUILD_PYTHON_MODULES=OFF",
-        "-DMESHLIB_BUILD_MRCUDA=OFF",
-        "-DMESHLIB_BUILD_VOXELS=OFF",
-        "-DMESHLIB_BUILD_SYMBOLMESH=OFF",
-        "-DMESHLIB_BUILD_MESHCONV=OFF",
-        "-DMESHLIB_BUILD_EXTRA_IO_FORMATS=OFF",
-        "-DMESHLIB_BUILD_GENERATED_C_BINDINGS=OFF",
-        "-DMESHLIB_EXPERIMENTAL_BUILD_C_BINDING=OFF",
-        "-DBUILD_TESTING=OFF",
-        "-DMRMESH_NO_TIFF=ON",
-        "-DMRMESH_NO_GTEST=ON",
-    ], cwd=MESHLIB_BUILD_DIR)
-
-    # Build only the MRMesh target (and its dependency MRPch if PCH is on)
-    bh.run([
-        "cmake", "--build", str(MESHLIB_BUILD_DIR),
-        "--target", "MRMesh",
-        "--config", cmake_build_type,
-        "--parallel",
-    ], cwd=MESHLIB_BUILD_DIR)
-
-    # Verify MRMesh library was built
-    lib_candidates = list(MESHLIB_BUILD_DIR.rglob("libMRMesh.so*"))
-    if not lib_candidates:
-        lib_candidates = list(MESHLIB_BUILD_DIR.rglob("MRMesh.dll"))
-    if not lib_candidates:
-        raise RuntimeError("MeshLib build finished but libMRMesh not found")
-    print(f"  MRMesh library: {lib_candidates[0]}")
-
-
-# ---------------------------------------------------------------------------
-# Step 2: Build the runner adapter
+# Step 2: Build the runner adapter against the prebuilt MeshLib layout
 # ---------------------------------------------------------------------------
 
 def build_runner(mode: str) -> None:
@@ -165,18 +256,13 @@ def build_runner(mode: str) -> None:
 
     vcpkg_toolchain = bh.vcpkg_toolchain(PROJECT_ROOT)
 
-    # Find the MRMesh library and headers from the MeshLib build
-    meshlib_source_dir = str(MESHLIB_CLONE)
-    meshlib_build_dir = str(MESHLIB_BUILD_DIR)
-
     bh.run([
         "cmake",
         "-S", str(RUNNER_DIR),
         "-B", str(RUNNER_BUILD_DIR),
         f"-DCMAKE_TOOLCHAIN_FILE={vcpkg_toolchain}",
         f"-DCMAKE_BUILD_TYPE={cmake_build_type}",
-        f"-DMESHLIB_SOURCE_DIR={meshlib_source_dir}",
-        f"-DMESHLIB_BUILD_DIR={meshlib_build_dir}",
+        f"-DMESHLIB_DIR={MESHLIB_DIR}",
         f"-DPROJECT_ROOT={PROJECT_ROOT}",
         f"-DCMAKE_RUNTIME_OUTPUT_DIRECTORY={BIN_DIR}",
         f"-DCMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE={BIN_DIR}",
@@ -194,6 +280,52 @@ def build_runner(mode: str) -> None:
         raise RuntimeError(f"Build finished but expected binary not found: {exe}")
 
 
+def _copy_lib(src: Path, dst_dir: Path) -> None:
+    """Copy a file into dst_dir, preserving symlinks (so libfoo.so -> libfoo.so.1 stays a link)."""
+    dst = dst_dir / src.name
+    if dst.exists() or dst.is_symlink():
+        dst.unlink()
+    if src.is_symlink():
+        target = os.readlink(src)
+        os.symlink(target, dst)
+    else:
+        shutil.copy2(src, dst)
+
+
+def copy_runtime_libs() -> None:
+    """Copy libMRMesh.so* + bundled transitive .so deps into bin/ so the runner is self-contained."""
+    BIN_DIR.mkdir(parents=True, exist_ok=True)
+    system = platform.system()
+
+    if system == "Windows":
+        dll_src = MESHLIB_DIR / "bin"
+        if not dll_src.is_dir():
+            print(f"[warn] No Windows DLL dir at {dll_src}")
+            return
+        count = 0
+        for dll in dll_src.glob("*.dll"):
+            _copy_lib(dll, BIN_DIR)
+            count += 1
+        print(f"Copied {count} DLL(s) from {dll_src} → {BIN_DIR}")
+        return
+
+    # Linux (and macOS, though .dylib support is untested here)
+    mrmesh_dir = MESHLIB_DIR / "lib" / "MeshLib"
+    transitive_dir = MESHLIB_DIR / "lib"
+
+    mrmesh_libs = sorted(mrmesh_dir.glob("libMRMesh.so*"))
+    if not mrmesh_libs:
+        print(f"[warn] libMRMesh.so* not found under {mrmesh_dir}")
+    for lib in mrmesh_libs:
+        _copy_lib(lib, BIN_DIR)
+
+    transitive = sorted(p for p in transitive_dir.glob("lib*.so*") if p.is_file() or p.is_symlink())
+    for lib in transitive:
+        _copy_lib(lib, BIN_DIR)
+
+    print(f"Copied {len(mrmesh_libs)} MRMesh lib(s) + {len(transitive)} transitive .so file(s) → {BIN_DIR}")
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -205,7 +337,7 @@ def main() -> int:
     parser.add_argument("--clean", action="store_true",
                         help="Remove bin/ and build/ directories and exit")
     parser.add_argument("--force-download", action="store_true",
-                        help="Re-clone MeshLib even if download/meshlib/ already exists")
+                        help="Re-download MeshLib even if download/meshlib/ already exists")
     parser.add_argument("-y", "--accept-licenses", action="store_true",
                         help="Accept all licenses non-interactively")
     args = parser.parse_args()
@@ -216,46 +348,45 @@ def main() -> int:
             shutil.rmtree(BIN_DIR)
         if BUILD_DIR.exists():
             shutil.rmtree(BUILD_DIR)
-        print("Done. Run without --clean to rebuild. Delete download/ manually to re-clone MeshLib.")
+        print("Done. Run without --clean to rebuild. Delete download/ manually to re-download MeshLib.")
         return 0
 
-    # Step 0: ensure vcpkg is bootstrapped
+    print("=== Step 1: Downloading and extracting prebuilt MeshLib ===")
+    archive_url, sha256 = acquire_meshlib(force=args.force_download)
+
+    print()
+    print("=== Step 2: Bootstrapping vcpkg ===")
     bh.ensure_vcpkg_bootstrapped(project_root=PROJECT_ROOT, runner_dir=RUNNER_DIR)
 
-    # Step 1: acquire upstream
-    clone_meshlib(force=args.force_download)
-    meshlib_commit = bh.git_commit(MESHLIB_CLONE)
-    print(f"MeshLib commit: {meshlib_commit}")
-
-    # Step 2: build MeshLib as a standalone project
-    print("\n=== Step 1/2: Building MeshLib ===")
-    build_meshlib(args.mode)
-
-    # Step 3: build the runner adapter
-    print("\n=== Step 2/2: Building runner ===")
+    print()
+    print(f"=== Step 3: Building meshlib_runner ({args.mode}) ===")
     build_runner(args.mode)
 
-    # Step 4: toolchain info
-    toolchain = bh.gather_toolchain(RUNNER_BUILD_DIR)
+    print()
+    print("=== Step 4: Copying runtime libraries into bin/ ===")
+    copy_runtime_libs()
 
-    # Step 5: build-info.json
+    print()
+    print("=== Step 5: Writing build-info.json ===")
+    toolchain = bh.gather_toolchain(RUNNER_BUILD_DIR)
     bh.write_build_info(
         runner_dir=RUNNER_DIR,
         bin_dir=BIN_DIR,
         mode=args.mode,
         exe_stem="meshlib_runner",
         upstream={
-            "source":           "git",
-            "url":              MESHLIB_GIT_URL,
-            "requested_ref":    MESHLIB_TAG,
-            "resolved_commit":  meshlib_commit,
-            "resolved_version": "3.1.1.211",
+            "source":           "url",
+            "url":              archive_url,
+            "sha256":           sha256,
+            "resolved_version": MESHLIB_VERSION,
+            "platform":         platform.system(),
         },
         toolchain=toolchain,
     )
 
     exe = BIN_DIR / bh.executable_name("meshlib_runner")
-    print(f"\nBuild complete.")
+    print()
+    print("Build complete.")
     print(f"  Executable : {exe}")
     print(f"  Build info : {BIN_DIR / 'build-info.json'}")
     return 0

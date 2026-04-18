@@ -6,46 +6,46 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 # ---------------------------------------------------------------------------
-# MeshLib — pre-built in step 1 (see build.py).
-# MESHLIB_SOURCE_DIR  = MeshLib source tree (for headers)
-# MESHLIB_BUILD_DIR   = MeshLib cmake build directory (for libraries)
+# MeshLib — prebuilt archive extracted by build.py into download/meshlib/.
+# MESHLIB_DIR points at that directory (vcpkg-style layout: include/, lib/, bin/).
+# All transitive deps (Boost, TBB, fmt, spdlog, nlohmann_json, parallel_hashmap, …)
+# are bundled under include/ and lib/; no vcpkg / find_package() required.
 # ---------------------------------------------------------------------------
-if(NOT DEFINED MESHLIB_SOURCE_DIR OR NOT EXISTS "${MESHLIB_SOURCE_DIR}/source/MRMesh")
-  message(FATAL_ERROR "MESHLIB_SOURCE_DIR must point to the MeshLib source tree.\n"
-                       "Run build.py instead of invoking cmake directly.")
-endif()
-if(NOT DEFINED MESHLIB_BUILD_DIR)
-  message(FATAL_ERROR "MESHLIB_BUILD_DIR must point to the MeshLib build directory.\n"
-                       "Run build.py instead of invoking cmake directly.")
+if(NOT DEFINED MESHLIB_DIR OR NOT EXISTS "${MESHLIB_DIR}/include/MeshLib/MRMesh/MRMesh.h")
+  message(FATAL_ERROR
+    "MESHLIB_DIR is not set or does not contain include/MeshLib/MRMesh/MRMesh.h.\n"
+    "Run build.py instead of invoking cmake directly.")
 endif()
 
-# Create an imported target for the pre-built MRMesh shared library.
 add_library(MRMesh SHARED IMPORTED)
 
-# Find the .so / .dll
-file(GLOB _mrmesh_lib "${MESHLIB_BUILD_DIR}/bin/libMRMesh.so*")
-if(NOT _mrmesh_lib)
-  file(GLOB _mrmesh_lib "${MESHLIB_BUILD_DIR}/bin/MRMesh.dll")
+if(WIN32)
+  # TODO: verify the Windows layout against MeshLibDist_v<ver>.zip on a Windows machine.
+  set(_mrmesh_dll "${MESHLIB_DIR}/bin/MRMesh.dll")
+  set(_mrmesh_imp "${MESHLIB_DIR}/lib/MRMesh.lib")
+  if(NOT EXISTS "${_mrmesh_dll}" OR NOT EXISTS "${_mrmesh_imp}")
+    message(FATAL_ERROR "Cannot find MRMesh.dll/MRMesh.lib under ${MESHLIB_DIR}")
+  endif()
+  set_target_properties(MRMesh PROPERTIES
+    IMPORTED_LOCATION "${_mrmesh_dll}"
+    IMPORTED_IMPLIB   "${_mrmesh_imp}"
+  )
+else()
+  file(GLOB _mrmesh_lib "${MESHLIB_DIR}/lib/MeshLib/libMRMesh.so*")
+  if(NOT _mrmesh_lib)
+    message(FATAL_ERROR "Cannot find libMRMesh.so* under ${MESHLIB_DIR}/lib/MeshLib/")
+  endif()
+  list(GET _mrmesh_lib 0 _mrmesh_lib_path)
+  set_target_properties(MRMesh PROPERTIES
+    IMPORTED_LOCATION  "${_mrmesh_lib_path}"
+    IMPORTED_NO_SONAME TRUE
+  )
 endif()
-if(NOT _mrmesh_lib)
-  message(FATAL_ERROR "Cannot find libMRMesh in ${MESHLIB_BUILD_DIR}/bin/")
-endif()
-list(GET _mrmesh_lib 0 _mrmesh_lib_path)
-set_target_properties(MRMesh PROPERTIES
-  IMPORTED_LOCATION "${_mrmesh_lib_path}"
-  IMPORTED_NO_SONAME TRUE
-)
 
-# MeshLib headers: source/MRMesh, source/MRPch, and source/ (for MRMesh/MRMeshFwd.h style includes)
 target_include_directories(MRMesh INTERFACE
-  "${MESHLIB_SOURCE_DIR}/source"
-  "${MESHLIB_SOURCE_DIR}/source/MRMesh"
-  "${MESHLIB_SOURCE_DIR}/source/MRPch"
+  "${MESHLIB_DIR}/include/MeshLib"
+  "${MESHLIB_DIR}/include"
 )
-
-# Dependencies — provided by vcpkg
-find_package(nlohmann_json CONFIG REQUIRED)
-find_package(parallel-hashmap CONFIG REQUIRED)
 
 # ---------------------------------------------------------------------------
 # Runner executable
@@ -66,14 +66,19 @@ target_include_directories(meshlib_runner PRIVATE
 
 target_link_libraries(meshlib_runner PRIVATE
   MRMesh
-  nlohmann_json::nlohmann_json
 )
 
-# Ensure the runner can find libMRMesh.so at runtime
-set_target_properties(meshlib_runner PROPERTIES
-  BUILD_RPATH "${MESHLIB_BUILD_DIR}/bin"
-  INSTALL_RPATH "$ORIGIN"
-)
+if(UNIX)
+  # build.py copies libMRMesh.so + transitive .so's next to the executable,
+  # so $ORIGIN makes the built binary self-contained. BUILD_WITH_INSTALL_RPATH
+  # bakes INSTALL_RPATH into the build output (no post-install rewrite needed).
+  set_target_properties(meshlib_runner PROPERTIES
+    BUILD_WITH_INSTALL_RPATH TRUE
+    INSTALL_RPATH            "$ORIGIN"
+  )
+endif()
 
-message(STATUS "meshlib_runner configured — MESHLIB_SOURCE_DIR: ${MESHLIB_SOURCE_DIR}")
-message(STATUS "  MRMesh library: ${_mrmesh_lib_path}")
+message(STATUS "meshlib_runner configured — MESHLIB_DIR: ${MESHLIB_DIR}")
+if(NOT WIN32)
+  message(STATUS "  MRMesh library: ${_mrmesh_lib_path}")
+endif()

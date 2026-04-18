@@ -1,17 +1,6 @@
 {
   "name": "meshlib-runner-deps",
   "version-string": "1.0",
-  "description": "Dependencies for the MeshLib boolean runner (MeshLib built standalone, runner links against it)",
-  "dependencies": [
-    "nlohmann-json",
-    "boost",
-    "eigen3",
-    "fmt",
-    "jsoncpp",
-    "spdlog",
-    "tbb",
-    "tl-expected",
-    "libzip",
-    "parallel-hashmap"
-  ]
+  "description": "MeshLib runner: all deps bundled in the prebuilt archive; vcpkg has nothing to install",
+  "dependencies": []
 }

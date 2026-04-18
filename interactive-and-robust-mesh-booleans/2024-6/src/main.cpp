@@ -194,7 +194,6 @@ static json execute_run(runner_utils::Config const& /*cfg*/, json const& run_req
                 op_res["status"] = "unsupported";
                 op_res["total_ms"] = 0.0;
                 op_res["error"] = e.what();
-                ops_result.push_back(op_res);
                 failed = true;
             }
             catch (std::exception const& e)
