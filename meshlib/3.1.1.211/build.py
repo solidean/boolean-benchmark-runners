@@ -75,6 +75,18 @@ BIN_DIR            = RUNNER_DIR / "bin"
 MESHLIB_DIR        = DOWNLOAD_DIR / "meshlib"
 RUNNER_BUILD_DIR   = BUILD_DIR / "runner"
 
+
+def _meshlib_prefix() -> Path:
+    """Effective prefix passed to CMake as MESHLIB_DIR.
+
+    Linux archive lays out include/, lib/ at the top level of MESHLIB_DIR.
+    Windows archive wraps them in an extra install/ subdir and uses a
+    different include/ layout (no MeshLib/ intermediate) — see CMakeLists.txt.
+    """
+    if platform.system() == "Windows":
+        return MESHLIB_DIR / "install"
+    return MESHLIB_DIR
+
 # Maps (system, machine) → archive metadata.
 # machine values from platform.machine(): x86_64, AMD64
 _PLATFORM_ARCHIVES: dict[tuple[str, str], dict[str, str]] = {
@@ -138,7 +150,7 @@ def _download(url: str, dest: Path) -> None:
     with urllib.request.urlopen(req) as resp, open(dest, "wb") as f:
         shutil.copyfileobj(resp, f)
 
-    print(f"  → saved to {dest}", flush=True)
+    print(f"  -> saved to {dest}", flush=True)
 
 
 def _common_prefix(names: list[str]) -> str | None:
@@ -238,7 +250,7 @@ def acquire_meshlib(force: bool = False) -> tuple[str, str]:
         shutil.rmtree(MESHLIB_DIR)
     MESHLIB_DIR.mkdir(parents=True, exist_ok=True)
 
-    print(f"Extracting {archive_local} → {MESHLIB_DIR} ...", flush=True)
+    print(f"Extracting {archive_local} -> {MESHLIB_DIR} ...", flush=True)
     _extract_archive(archive_local, MESHLIB_DIR)
     print(f"[ok] MeshLib extracted to {MESHLIB_DIR}", flush=True)
 
@@ -262,7 +274,7 @@ def build_runner(mode: str) -> None:
         "-B", str(RUNNER_BUILD_DIR),
         f"-DCMAKE_TOOLCHAIN_FILE={vcpkg_toolchain}",
         f"-DCMAKE_BUILD_TYPE={cmake_build_type}",
-        f"-DMESHLIB_DIR={MESHLIB_DIR}",
+        f"-DMESHLIB_DIR={_meshlib_prefix()}",
         f"-DPROJECT_ROOT={PROJECT_ROOT}",
         f"-DCMAKE_RUNTIME_OUTPUT_DIRECTORY={BIN_DIR}",
         f"-DCMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE={BIN_DIR}",
@@ -292,13 +304,14 @@ def _copy_lib(src: Path, dst_dir: Path) -> None:
         shutil.copy2(src, dst)
 
 
-def copy_runtime_libs() -> None:
+def copy_runtime_libs(mode: str) -> None:
     """Copy libMRMesh.so* + bundled transitive .so deps into bin/ so the runner is self-contained."""
     BIN_DIR.mkdir(parents=True, exist_ok=True)
     system = platform.system()
 
     if system == "Windows":
-        dll_src = MESHLIB_DIR / "bin"
+        config = "Release" if mode == "release" else "Debug"
+        dll_src = _meshlib_prefix() / "app" / config
         if not dll_src.is_dir():
             print(f"[warn] No Windows DLL dir at {dll_src}")
             return
@@ -306,7 +319,7 @@ def copy_runtime_libs() -> None:
         for dll in dll_src.glob("*.dll"):
             _copy_lib(dll, BIN_DIR)
             count += 1
-        print(f"Copied {count} DLL(s) from {dll_src} → {BIN_DIR}")
+        print(f"Copied {count} DLL(s) from {dll_src} -> {BIN_DIR}")
         return
 
     # Linux (and macOS, though .dylib support is untested here)
@@ -323,7 +336,7 @@ def copy_runtime_libs() -> None:
     for lib in transitive:
         _copy_lib(lib, BIN_DIR)
 
-    print(f"Copied {len(mrmesh_libs)} MRMesh lib(s) + {len(transitive)} transitive .so file(s) → {BIN_DIR}")
+    print(f"Copied {len(mrmesh_libs)} MRMesh lib(s) + {len(transitive)} transitive .so file(s) -> {BIN_DIR}")
 
 
 # ---------------------------------------------------------------------------
@@ -364,7 +377,7 @@ def main() -> int:
 
     print()
     print("=== Step 4: Copying runtime libraries into bin/ ===")
-    copy_runtime_libs()
+    copy_runtime_libs(args.mode)
 
     print()
     print("=== Step 5: Writing build-info.json ===")
