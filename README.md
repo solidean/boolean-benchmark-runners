@@ -2,6 +2,14 @@
 
 This repo contains small standalone runners that all support the same request/result protocol to run standardized benchmarks.
 
+## Documentation
+
+* [Runner Overview](docs/Runner%20Overview.md) — concepts, folder layout, execution model
+* [Runner I/O Contract](docs/Runner%20IO%20Contract.md) — request/result JSON, timing fields, multi-run protocol
+* [Runner Manifest Spec](docs/Runner%20Manifest%20Spec.md) — `runner.yaml` schema and capabilities
+* [Build Script Spec](docs/Build%20Script%20Spec.md) — `build.py` responsibilities and `build-info.json`
+* [Adding a New Runner](docs/Adding%20a%20New%20Runner%20Guide.md) — step-by-step, checklist, starter templates
+
 | Project                                                                                                       | Type     | Variant                        | Version | Capabilities | License     |
 | ------------------------------------------------------------------------------------------------------------- | -------- | ------------------------------ | ------- | ------------ | ----------- |
 | [Blender](https://www.blender.org/)                                                                           | Tool     | [Exact](blender/5.1/runner.yaml)                          | 5.1     |              | GPL         |
@@ -58,3 +66,4 @@ Only the `runner.yaml` is mandatory, the rest depends on the runner type. A comm
 ## TODOs
 
 - Blender: needs an exact + self-intersection variant (the current Exact variant does not support self-intersecting input).
+- Add `N` for non-manifold handling. This requires a properly thought out notion of what "correctness" means but is otherwise high-value.
