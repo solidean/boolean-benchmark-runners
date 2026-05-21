@@ -16,12 +16,12 @@
 //
 // Timing conventions (per-op fields):
 //   load-mesh:
-//     total_ms   — start before file open, end when handle is in memory
+//     debug_total_ms   — start before file open, end when handle is in memory
 //     io_ms      — file → IndexedMesh (file I/O, format parse, fan triangulation)
 //     import_ms  — IndexedMesh → Surface_mesh<EPEC> (EPEC promotion, repair,
 //                  orient, polygon_soup_to_polygon_mesh, validation)
 //   boolean ops:
-//     total_ms      — start when native operands are ready, end when result is ready
+//     debug_total_ms      — start when native operands are ready, end when result is ready
 //     operation_ms  — boolean computation only (corefine_and_compute_*)
 //     export_ms     — Surface_mesh<EPEC> → IndexedMesh (EPEC→double, face
 //                     traversal, fan triangulation; excludes disk write)
@@ -138,7 +138,7 @@ static json execute_run(runner_utils::Config const& /*cfg*/, json const& run_req
                     ssa.push_back(std::move(loaded));
 
                     op_res["status"] = "success";
-                    op_res["total_ms"] = op_total_timer.elapsed_ms();
+                    op_res["debug_total_ms"] = op_total_timer.elapsed_ms();
                     op_res["io_ms"] = io_ms;
                     op_res["import_ms"] = import_ms;
                     op_res["file"] = file_path;
@@ -166,7 +166,7 @@ static json execute_run(runner_utils::Config const& /*cfg*/, json const& run_req
                     if (!ok)
                     {
                         op_res["status"] = "invalid_input";
-                        op_res["total_ms"] = op_total_timer.elapsed_ms();
+                        op_res["debug_total_ms"] = op_total_timer.elapsed_ms();
                         op_res["operation_ms"] = operation_ms;
                         op_res["error"] = "corefine_and_compute returned false — inputs may be self-intersecting, "
                                           "non-manifold, or otherwise invalid";
@@ -188,7 +188,7 @@ static json execute_run(runner_utils::Config const& /*cfg*/, json const& run_req
                     ssa.push_back(std::move(result));
 
                     op_res["status"] = "success";
-                    op_res["total_ms"] = op_total_timer.elapsed_ms();
+                    op_res["debug_total_ms"] = op_total_timer.elapsed_ms();
                     op_res["operation_ms"] = operation_ms;
                     op_res["export_ms"] = export_ms;
                     op_res["file"] = file_path;
@@ -196,7 +196,7 @@ static json execute_run(runner_utils::Config const& /*cfg*/, json const& run_req
                 else
                 {
                     op_res["status"] = "unsupported";
-                    op_res["total_ms"] = 0.0;
+                    op_res["debug_total_ms"] = 0.0;
                     op_res["error"] = "unknown op: " + op_str;
                     ssa.push_back(Mesh());
                     failed = true;
@@ -205,7 +205,7 @@ static json execute_run(runner_utils::Config const& /*cfg*/, json const& run_req
             catch (runner_utils::unsupported_op const& e)
             {
                 op_res["status"] = "unsupported";
-                op_res["total_ms"] = 0.0;
+                op_res["debug_total_ms"] = 0.0;
                 op_res["error"] = e.what();
                 failed = true;
             }
@@ -217,14 +217,14 @@ static json execute_run(runner_utils::Config const& /*cfg*/, json const& run_req
                 bool const is_validation = what.find("not closed") != std::string::npos
                                         || what.find("not a valid polygon mesh") != std::string::npos;
                 op_res["status"] = (op_str == "load-mesh" && is_validation) ? "invalid_input" : "crash";
-                op_res["total_ms"] = op_total_timer.elapsed_ms();
+                op_res["debug_total_ms"] = op_total_timer.elapsed_ms();
                 op_res["error"] = what;
                 failed = true;
             }
             catch (...)
             {
                 op_res["status"] = "crash";
-                op_res["total_ms"] = op_total_timer.elapsed_ms();
+                op_res["debug_total_ms"] = op_total_timer.elapsed_ms();
                 op_res["error"] = "unknown exception";
                 failed = true;
             }

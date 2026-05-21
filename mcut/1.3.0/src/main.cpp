@@ -18,13 +18,13 @@
 //
 // Timing conventions (per-op fields):
 //   load-mesh:
-//     total_ms   — start before file open, end when McuMesh is in SSA
+//     debug_total_ms   — start before file open, end when McuMesh is in SSA
 //     io_ms      — file → flat double verts + int indices
 //                  (runner_mesh_helpers::loadFromFileIndexed)
 //     import_ms  — int-to-uint32_t index cast + non-empty sanity check;
 //                  near-zero cost, included for consistency
 //   boolean ops:
-//     total_ms      — start when operands are ready, end when result is in SSA
+//     debug_total_ms      — start when operands are ready, end when result is in SSA
 //     operation_ms  — mcDispatch() only
 //     export_ms     — mcGetConnectedComponents (TYPE_ALL) +
 //                     mcGetConnectedComponentData (TYPE filter to FRAGMENT +
@@ -304,7 +304,7 @@ static json execute_run(runner_utils::Config const& /*cfg*/, json const& run_req
                     ssa.push_back(std::move(loaded));
 
                     op_res["status"]    = "success";
-                    op_res["total_ms"]  = op_total_timer.elapsed_ms();
+                    op_res["debug_total_ms"]  = op_total_timer.elapsed_ms();
                     op_res["io_ms"]     = io_ms;
                     op_res["import_ms"] = import_ms;
                     op_res["file"]      = file_path;
@@ -331,7 +331,7 @@ static json execute_run(runner_utils::Config const& /*cfg*/, json const& run_req
                     if (dispatch_res != MC_NO_ERROR)
                     {
                         op_res["status"]       = "invalid_input";
-                        op_res["total_ms"]     = op_total_timer.elapsed_ms();
+                        op_res["debug_total_ms"]     = op_total_timer.elapsed_ms();
                         op_res["operation_ms"] = operation_ms;
                         op_res["error"]        = "mcDispatch returned error (McResult="
                                                  + std::to_string(dispatch_res)
@@ -355,7 +355,7 @@ static json execute_run(runner_utils::Config const& /*cfg*/, json const& run_req
                     ssa.push_back(std::move(result));
 
                     op_res["status"]       = "success";
-                    op_res["total_ms"]     = op_total_timer.elapsed_ms();
+                    op_res["debug_total_ms"]     = op_total_timer.elapsed_ms();
                     op_res["operation_ms"] = operation_ms;
                     op_res["export_ms"]    = export_ms;
                     op_res["file"]         = file_path;
@@ -363,7 +363,7 @@ static json execute_run(runner_utils::Config const& /*cfg*/, json const& run_req
                 else
                 {
                     op_res["status"]   = "unsupported";
-                    op_res["total_ms"] = 0.0;
+                    op_res["debug_total_ms"] = 0.0;
                     op_res["error"]    = "unknown op: " + op_str;
                     ssa.push_back(McuMesh{});
                     failed = true;
@@ -372,21 +372,21 @@ static json execute_run(runner_utils::Config const& /*cfg*/, json const& run_req
             catch (runner_utils::unsupported_op const& e)
             {
                 op_res["status"]   = "unsupported";
-                op_res["total_ms"] = 0.0;
+                op_res["debug_total_ms"] = 0.0;
                 op_res["error"]    = e.what();
                 failed = true;
             }
             catch (std::exception const& e)
             {
                 op_res["status"]   = "crash";
-                op_res["total_ms"] = op_total_timer.elapsed_ms();
+                op_res["debug_total_ms"] = op_total_timer.elapsed_ms();
                 op_res["error"]    = e.what();
                 failed = true;
             }
             catch (...)
             {
                 op_res["status"]   = "crash";
-                op_res["total_ms"] = op_total_timer.elapsed_ms();
+                op_res["debug_total_ms"] = op_total_timer.elapsed_ms();
                 op_res["error"]    = "unknown exception";
                 failed = true;
             }

@@ -77,7 +77,7 @@ For C++ runners, [`runner_utils::validate_op_boolean_binary`](../_common/cpp/inc
 
 ### Output files
 
-Write the result of **every** operation — including `load-mesh` — to `<out_dir>/op_<N>.<ext>` (`N` = zero-based op index). Writing loads enables load-integrity checks and standalone viewer playback. Report the path in the per-op `file` field. Disk write time is **excluded** from `io_ms` / `import_ms` / `operation_ms` / `export_ms` / `preprocessing_ms`; it lands in `total_ms` along with the rest of the per-op wall-clock.
+Write the result of **every** operation — including `load-mesh` — to `<out_dir>/op_<N>.<ext>` (`N` = zero-based op index). Writing loads enables load-integrity checks and standalone viewer playback. Report the path in the per-op `file` field. Disk write time is **excluded** from `io_ms` / `import_ms` / `operation_ms` / `export_ms` / `preprocessing_ms`; it lands in `debug_total_ms` along with the rest of the per-op wall-clock.
 
 ## Result
 
@@ -94,9 +94,9 @@ Mirrors the request envelope:
       "status": "success",
       "duration_ms": 152.4,
       "ops": [
-        { "status": "success", "total_ms": 5.1,   "io_ms": 2.1, "import_ms": 3.0,    "file": ".../op_0.obj" },
-        { "status": "success", "total_ms": 4.8,   "io_ms": 1.9, "import_ms": 2.9,    "file": ".../op_1.obj" },
-        { "status": "success", "total_ms": 142.5, "operation_ms": 139.2, "export_ms": 3.1, "file": ".../op_2.obj" }
+        { "status": "success", "debug_total_ms": 5.1,   "io_ms": 2.1, "import_ms": 3.0,    "file": ".../op_0.obj" },
+        { "status": "success", "debug_total_ms": 4.8,   "io_ms": 1.9, "import_ms": 2.9,    "file": ".../op_1.obj" },
+        { "status": "success", "debug_total_ms": 142.5, "operation_ms": 139.2, "export_ms": 3.1, "file": ".../op_2.obj" }
       ]
     }
   ]
@@ -129,7 +129,7 @@ A runner may stop at the first non-success op and emit a shorter `ops` array; mi
 | Field | Required | Description |
 |---|---|---|
 | `status` | yes | Op outcome |
-| `total_ms` | yes | Wall time for the op (start/end depends on op type — see timing below) |
+| `debug_total_ms` | yes | Raw per-op wall-clock including the output-file disk write. Diagnostic only — see timing below |
 | `operation_ms` | boolean ops | Algorithmic core time on already-native inputs. Excludes io/import/export/preprocessing |
 | `io_ms` | optional | File → declared raw mesh format (typically indexed-tris-f64) |
 | `import_ms` | optional | Raw mesh format → native internal structure |
@@ -147,20 +147,20 @@ Failures must be reported via `status` + `error`, not only via the exit code. Ex
 
 ## Timing field semantics
 
-`total_ms` is the raw per-op wall-clock, **including the disk write of the output file**. Treat it as diagnostic only — it does not compose across ops, because summing it double-counts intermediate exports and disk writes that a real consumer would not pay if the next op reused the in-memory handle.
+`debug_total_ms` is the raw per-op wall-clock, **including the disk write of the output file**. Treat it as diagnostic only — it does not compose across ops, because summing it double-counts intermediate exports and disk writes that a real consumer would not pay if the next op reused the in-memory handle. Downstream consumers compute a clean `total_ms = import_ms + operation_ms + export_ms` from the explicit sub-fields below; the runner itself emits only `debug_total_ms`.
 
 The other fields are sub-measurements with defined inclusion policies. Small uncategorized glue between phases is acceptable — there is no `misc_ms`.
 
 | Field | load-mesh | boolean ops |
 |---|---|---|
-| `total_ms` | required (diagnostic) | required (diagnostic) |
+| `debug_total_ms` | required (diagnostic) | required (diagnostic) |
 | `operation_ms` | — | required |
 | `io_ms` | recommended | normally — |
 | `import_ms` | recommended | optional |
 | `export_ms` | — | optional (common) |
 | `preprocessing_ms` | optional | optional |
 
-* **`total_ms`** — wall-clock for the entire per-op step, including the disk write of the result file. Diagnostic only — see composition guidance below.
+* **`debug_total_ms`** — wall-clock for the entire per-op step, including the disk write of the result file. Diagnostic only — see composition guidance below.
 * **`operation_ms`** — boolean computation on already-native inputs. Excludes io / import / export / preprocessing. Some runners cannot separate the library's internal import/export from its boolean call — those should document what `operation_ms` actually covers in `runner.yaml` notes.
 * **`io_ms`** — file read + parse, up to (not including) native conversion.
 * **`import_ms`** — raw mesh format → native structure.
@@ -169,7 +169,7 @@ The other fields are sub-measurements with defined inclusion policies. Small unc
 
 ### Composing timings for benchmarking
 
-Don't sum `total_ms` across ops. The compositions that mean something:
+Don't sum `debug_total_ms` across ops. The compositions that mean something:
 
 * **End-to-end (mirrors "load → ops → save" user experience)**:
   `Σ load-mesh.import_ms + Σ boolean.operation_ms + last boolean.export_ms`
@@ -186,10 +186,10 @@ Whether to include `io_ms` depends on the benchmark question: "given files on di
 
 Approximate relationships, not enforced numerically:
 
-* load-mesh: `total_ms ≈ io_ms + import_ms + <disk write of the load's output file>`
-* boolean ops: `total_ms ≈ operation_ms + export_ms + <disk write of the result file>`
+* load-mesh: `debug_total_ms ≈ io_ms + import_ms + <disk write of the load's output file>`
+* boolean ops: `debug_total_ms ≈ operation_ms + export_ms + <disk write of the result file>`
 
-The disk-write portion of `total_ms` is normally small but can be substantial for large meshes or slow filesystems — another reason to use the explicit sub-fields, not `total_ms`, for benchmarking.
+The disk-write portion of `debug_total_ms` is normally small but can be substantial for large meshes or slow filesystems — another reason to use the explicit sub-fields, not `debug_total_ms`, for benchmarking.
 
 Runners must document their raw mesh format and what each `*_ms` field covers — usually in `runner.yaml` notes. See [solidean/2026.1/runner.yaml](../solidean/2026.1/runner.yaml) for an example.
 

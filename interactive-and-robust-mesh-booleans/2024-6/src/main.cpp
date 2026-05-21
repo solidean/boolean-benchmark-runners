@@ -18,11 +18,11 @@
 //
 // Timing conventions (per-op fields):
 //   load-mesh:
-//     total_ms   — start before file open, end when mesh is in SSA
+//     debug_total_ms   — start before file open, end when mesh is in SSA
 //     io_ms      — file → flat double verts + int indices (runner_mesh_helpers)
 //     import_ms  — int indices → uint (cast to match library's vector<uint>)
 //   boolean ops:
-//     total_ms      — start when native operands are ready, end when result is ready
+//     debug_total_ms      — start when native operands are ready, end when result is ready
 //     operation_ms  — booleanPipeline() call only
 //     export_ms     — uint result indices → int for saveToFileIndexed; excludes disk write
 // ---------------------------------------------------------------------------
@@ -113,7 +113,7 @@ static json execute_run(runner_utils::Config const& /*cfg*/, json const& run_req
                     ssa.push_back({std::move(verts), std::move(uint_tris)});
 
                     op_res["status"] = "success";
-                    op_res["total_ms"] = op_total_timer.elapsed_ms();
+                    op_res["debug_total_ms"] = op_total_timer.elapsed_ms();
                     op_res["io_ms"] = io_ms;
                     op_res["import_ms"] = import_ms;
                     op_res["file"] = file_path;
@@ -175,7 +175,7 @@ static json execute_run(runner_utils::Config const& /*cfg*/, json const& run_req
                     ssa.push_back({std::move(out_coords), std::move(out_tris)});
 
                     op_res["status"] = "success";
-                    op_res["total_ms"] = op_total_timer.elapsed_ms();
+                    op_res["debug_total_ms"] = op_total_timer.elapsed_ms();
                     op_res["operation_ms"] = operation_ms;
                     op_res["export_ms"] = export_ms;
                     op_res["file"] = file_path;
@@ -183,7 +183,7 @@ static json execute_run(runner_utils::Config const& /*cfg*/, json const& run_req
                 else
                 {
                     op_res["status"] = "unsupported";
-                    op_res["total_ms"] = 0.0;
+                    op_res["debug_total_ms"] = 0.0;
                     op_res["error"] = "unknown op: " + op_str;
                     ssa.push_back({});
                     failed = true;
@@ -192,14 +192,14 @@ static json execute_run(runner_utils::Config const& /*cfg*/, json const& run_req
             catch (runner_utils::unsupported_op const& e)
             {
                 op_res["status"] = "unsupported";
-                op_res["total_ms"] = 0.0;
+                op_res["debug_total_ms"] = 0.0;
                 op_res["error"] = e.what();
                 failed = true;
             }
             catch (std::exception const& e)
             {
                 op_res["status"] = "crash";
-                op_res["total_ms"] = op_total_timer.elapsed_ms();
+                op_res["debug_total_ms"] = op_total_timer.elapsed_ms();
                 op_res["error"] = e.what();
                 ssa.push_back({});
                 failed = true;
@@ -207,7 +207,7 @@ static json execute_run(runner_utils::Config const& /*cfg*/, json const& run_req
             catch (...)
             {
                 op_res["status"] = "crash";
-                op_res["total_ms"] = op_total_timer.elapsed_ms();
+                op_res["debug_total_ms"] = op_total_timer.elapsed_ms();
                 op_res["error"] = "unknown exception";
                 ssa.push_back({});
                 failed = true;

@@ -39,12 +39,12 @@
 //
 // Timing conventions (per-op fields):
 //   load-mesh:
-//     total_ms   — start before file open, end when mesh data is in SSA
+//     debug_total_ms   — start before file open, end when mesh data is in SSA
 //     io_ms      — file → flat double verts + int indices
 //     import_ms  — (near-zero) data is kept in SSA as flat arrays; actual
 //                  conversion to mCSG format happens per-op in apply_op
 //   boolean ops:
-//     total_ms      — start when operands are ready, end when result is in SSA
+//     debug_total_ms      — start when operands are ready, end when result is in SSA
 //     operation_ms  — full mCSG pipeline (addMeshFromVFArray + afterLoad +
 //                     initKDTree + exploreKDTree + makeFacets with tesselate=3)
 //     export_ms     — result extraction from csg.facets/csg.vertices into
@@ -324,7 +324,7 @@ static json execute_run(runner_utils::Config const& /*cfg*/, json const& run_req
                     ssa.push_back(std::move(mesh));
 
                     op_res["status"]    = "success";
-                    op_res["total_ms"]  = op_total_timer.elapsed_ms();
+                    op_res["debug_total_ms"]  = op_total_timer.elapsed_ms();
                     op_res["io_ms"]     = io_ms;
                     op_res["import_ms"] = import_ms;
                     op_res["file"]      = file_path;
@@ -348,7 +348,7 @@ static json execute_run(runner_utils::Config const& /*cfg*/, json const& run_req
                     if (!result.ok)
                     {
                         op_res["status"]       = "invalid_input";
-                        op_res["total_ms"]     = op_total_timer.elapsed_ms();
+                        op_res["debug_total_ms"]     = op_total_timer.elapsed_ms();
                         op_res["operation_ms"] = result.operation_ms;
                         op_res["error"]        = "mCSG boolean operation returned no valid output";
                         ssa.push_back(MeshData{});
@@ -367,7 +367,7 @@ static json execute_run(runner_utils::Config const& /*cfg*/, json const& run_req
                     ssa.push_back(std::move(result_mesh));
 
                     op_res["status"]       = "success";
-                    op_res["total_ms"]     = op_total_timer.elapsed_ms();
+                    op_res["debug_total_ms"]     = op_total_timer.elapsed_ms();
                     op_res["operation_ms"] = result.operation_ms;
                     op_res["export_ms"]    = result.export_ms;
                     op_res["file"]         = file_path;
@@ -375,7 +375,7 @@ static json execute_run(runner_utils::Config const& /*cfg*/, json const& run_req
                 else
                 {
                     op_res["status"]   = "unsupported";
-                    op_res["total_ms"] = 0.0;
+                    op_res["debug_total_ms"] = 0.0;
                     op_res["error"]    = "unknown op: " + op_str;
                     ssa.push_back(MeshData{});
                     failed = true;
@@ -384,21 +384,21 @@ static json execute_run(runner_utils::Config const& /*cfg*/, json const& run_req
             catch (runner_utils::unsupported_op const& e)
             {
                 op_res["status"]   = "unsupported";
-                op_res["total_ms"] = 0.0;
+                op_res["debug_total_ms"] = 0.0;
                 op_res["error"]    = e.what();
                 failed = true;
             }
             catch (std::exception const& e)
             {
                 op_res["status"]   = "crash";
-                op_res["total_ms"] = op_total_timer.elapsed_ms();
+                op_res["debug_total_ms"] = op_total_timer.elapsed_ms();
                 op_res["error"]    = e.what();
                 failed = true;
             }
             catch (...)
             {
                 op_res["status"]   = "crash";
-                op_res["total_ms"] = op_total_timer.elapsed_ms();
+                op_res["debug_total_ms"] = op_total_timer.elapsed_ms();
                 op_res["error"]    = "unknown exception";
                 failed = true;
             }

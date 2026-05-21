@@ -14,12 +14,12 @@
 //
 // Timing conventions (per-op fields):
 //   load-mesh:
-//     total_ms   — start before file open, end when TriMesh is in SSA
+//     debug_total_ms   — start before file open, end when TriMesh is in SSA
 //     io_ms      — file → flat double verts + int indices
 //                  (runner_mesh_helpers::loadFromFileIndexed)
 //     import_ms  — double→float temp + isSolid() validation; excludes disk I/O
 //   boolean ops:
-//     total_ms      — start when native operands are ready, end when result is ready
+//     debug_total_ms      — start when native operands are ready, end when result is ready
 //     operation_ms  — double→float conversion + computeUnion/computeIntersection/
 //                     computeDifference + float→double copy + freeCorkTriMesh
 //     export_ms     — disk-write preparation (trivial: data already in double/int)
@@ -190,7 +190,7 @@ static json execute_run(runner_utils::Config const& /*cfg*/, json const& run_req
                     ssa.push_back(std::move(owned));
 
                     op_res["status"]    = "success";
-                    op_res["total_ms"]  = op_total_timer.elapsed_ms();
+                    op_res["debug_total_ms"]  = op_total_timer.elapsed_ms();
                     op_res["io_ms"]     = io_ms;
                     op_res["import_ms"] = import_ms;
                     op_res["file"]      = file_path;
@@ -225,7 +225,7 @@ static json execute_run(runner_utils::Config const& /*cfg*/, json const& run_req
                     ssa.push_back(std::move(result));
 
                     op_res["status"]       = "success";
-                    op_res["total_ms"]     = op_total_timer.elapsed_ms();
+                    op_res["debug_total_ms"]     = op_total_timer.elapsed_ms();
                     op_res["operation_ms"] = operation_ms;
                     op_res["export_ms"]    = export_ms;
                     op_res["file"]         = file_path;
@@ -233,7 +233,7 @@ static json execute_run(runner_utils::Config const& /*cfg*/, json const& run_req
                 else
                 {
                     op_res["status"]   = "unsupported";
-                    op_res["total_ms"] = 0.0;
+                    op_res["debug_total_ms"] = 0.0;
                     op_res["error"]    = "unknown op: " + op_str;
                     ssa.push_back(TriMesh{});
                     failed = true;
@@ -242,21 +242,21 @@ static json execute_run(runner_utils::Config const& /*cfg*/, json const& run_req
             catch (runner_utils::unsupported_op const& e)
             {
                 op_res["status"]   = "unsupported";
-                op_res["total_ms"] = 0.0;
+                op_res["debug_total_ms"] = 0.0;
                 op_res["error"]    = e.what();
                 failed = true;
             }
             catch (std::exception const& e)
             {
                 op_res["status"]   = "crash";
-                op_res["total_ms"] = op_total_timer.elapsed_ms();
+                op_res["debug_total_ms"] = op_total_timer.elapsed_ms();
                 op_res["error"]    = e.what();
                 failed = true;
             }
             catch (...)
             {
                 op_res["status"]   = "crash";
-                op_res["total_ms"] = op_total_timer.elapsed_ms();
+                op_res["debug_total_ms"] = op_total_timer.elapsed_ms();
                 op_res["error"]    = "unknown exception";
                 failed = true;
             }

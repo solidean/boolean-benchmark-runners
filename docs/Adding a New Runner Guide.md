@@ -27,7 +27,7 @@ Folder explosion makes the tree noisy. Don't create a folder for every flag.
    Use the `uv` shebang. Find the runners-repo root via the `bootstrap-vcpkg.py` sentinel walk (do not use hardcoded `parents[N]`). Import shared helpers from `_common/build_helpers/python/builder_helpers.py`. For C++ runners, pass `-DPROJECT_ROOT=<runners-repo-root>` to cmake so `CMakeLists.txt` can find `_common/cpp/include` without `../../../` paths.
 
 5. **Implement the I/O contract.**
-   The runner reads `--request` and writes `--result`. Handle `load-mesh`, `boolean-union`, `boolean-intersection`, `boolean-difference`. Emit `total_ms` on every op; `operation_ms` on boolean ops. See [Runner I/O Contract](Runner%20IO%20Contract.md).
+   The runner reads `--request` and writes `--result`. Handle `load-mesh`, `boolean-union`, `boolean-intersection`, `boolean-difference`. Emit `debug_total_ms` on every op; `operation_ms` on boolean ops. See [Runner I/O Contract](Runner%20IO%20Contract.md).
 
 6. **Declare capabilities honestly.**
    If your variant assumes non-self-intersecting input, set `accepts_self_intersections: false`. The meta-runner uses capabilities to decide applicability.
@@ -39,7 +39,7 @@ Folder explosion makes the tree noisy. Don't create a folder for every flag.
 
 Mandatory:
 
-* `total_ms` on every op.
+* `debug_total_ms` on every op — raw per-op wall-clock incl. disk write; diagnostic only.
 * `operation_ms` on every boolean op — algorithmic core time on already-native inputs (excludes io / import / export / preprocessing).
 
 Recommended for `load-mesh`:
@@ -71,7 +71,7 @@ Document your raw mesh format and what each `*_ms` field covers in `runner.yaml`
 - [ ] `bin/build-info.json` is written by the build
 - [ ] `entry.command` points at the artifact the build produces
 - [ ] Runner accepts `--request <path> --result <path>` and writes a valid result JSON
-- [ ] Every per-op result has `total_ms`; every boolean op also has `operation_ms`
+- [ ] Every per-op result has `debug_total_ms`; every boolean op also has `operation_ms`
 - [ ] `runner.yaml` notes document the raw mesh format and what each timing field covers
 - [ ] `.gitignore` excludes `bin/` and `download/`
 

@@ -15,13 +15,13 @@
 //
 // Timing conventions (per-op fields):
 //   load-mesh:
-//     total_ms   — start before file open, end when polygon is in SSA
+//     debug_total_ms   — start before file open, end when polygon is in SSA
 //     io_ms      — file → flat double verts + int indices
 //                  (runner_mesh_helpers::loadFromFileIndexed)
 //     import_ms  — f64→f32 cast + blocked_buffer/points_buffer construction
 //                  + tf::make_polygons_buffer
 //   boolean ops:
-//     total_ms      — start when native operands are ready, end when result is ready
+//     debug_total_ms      — start when native operands are ready, end when result is ready
 //     operation_ms  — tf::make_boolean() call only
 //     export_ms     — points_buffer/faces_buffer data extraction + f32→f64 cast
 //                     (excludes disk write)
@@ -161,7 +161,7 @@ static json execute_run(runner_utils::Config const& /*cfg*/, json const& run_req
                     ssa.push_back(std::move(polys));
 
                     op_res["status"] = "success";
-                    op_res["total_ms"] = op_total_timer.elapsed_ms();
+                    op_res["debug_total_ms"] = op_total_timer.elapsed_ms();
                     op_res["io_ms"] = io_ms;
                     op_res["import_ms"] = import_ms;
                     op_res["file"] = file_path;
@@ -198,7 +198,7 @@ static json execute_run(runner_utils::Config const& /*cfg*/, json const& run_req
                     ssa.push_back(std::move(result));
 
                     op_res["status"] = "success";
-                    op_res["total_ms"] = op_total_timer.elapsed_ms();
+                    op_res["debug_total_ms"] = op_total_timer.elapsed_ms();
                     op_res["operation_ms"] = operation_ms;
                     op_res["export_ms"] = export_ms;
                     op_res["file"] = file_path;
@@ -206,7 +206,7 @@ static json execute_run(runner_utils::Config const& /*cfg*/, json const& run_req
                 else
                 {
                     op_res["status"] = "unsupported";
-                    op_res["total_ms"] = 0.0;
+                    op_res["debug_total_ms"] = 0.0;
                     op_res["error"] = "unknown op: " + op_str;
                     ssa.push_back(TfMeshBuf{});
                     failed = true;
@@ -215,21 +215,21 @@ static json execute_run(runner_utils::Config const& /*cfg*/, json const& run_req
             catch (runner_utils::unsupported_op const& e)
             {
                 op_res["status"] = "unsupported";
-                op_res["total_ms"] = 0.0;
+                op_res["debug_total_ms"] = 0.0;
                 op_res["error"] = e.what();
                 failed = true;
             }
             catch (std::exception const& e)
             {
                 op_res["status"] = "crash";
-                op_res["total_ms"] = op_total_timer.elapsed_ms();
+                op_res["debug_total_ms"] = op_total_timer.elapsed_ms();
                 op_res["error"] = e.what();
                 failed = true;
             }
             catch (...)
             {
                 op_res["status"] = "crash";
-                op_res["total_ms"] = op_total_timer.elapsed_ms();
+                op_res["debug_total_ms"] = op_total_timer.elapsed_ms();
                 op_res["error"] = "unknown exception";
                 failed = true;
             }

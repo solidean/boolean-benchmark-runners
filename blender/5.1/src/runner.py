@@ -9,12 +9,12 @@ Reads a boolean-benchmark request JSON, executes all runs, writes result JSON.
 
 Timing conventions:
   load-mesh:
-    total_ms    — start before obj_import, end after view_layer.update()
+    debug_total_ms    — start before obj_import, end after view_layer.update()
     io_ms       — bpy.ops.wm.obj_import (file read + parse into scene)
     import_ms   — bpy.context.view_layer.update() (mesh geometry evaluation)
     export_ms   — triangulate modifier apply + obj_export (timed together)
   boolean ops:
-    total_ms      — start when native operands are ready (lhs/rhs in SSA),
+    debug_total_ms      — start when native operands are ready (lhs/rhs in SSA),
                     end when modifier_apply completes
     operation_ms  — bpy.ops.object.modifier_apply only (the boolean itself)
     export_ms     — triangulate modifier apply + obj_export (timed together)
@@ -172,7 +172,7 @@ def execute_run(run_req: dict, solver: str) -> dict:
                     bpy.context.view_layer.update()
                     import_ms = import_timer.elapsed_ms()
 
-                    total_ms = op_total_timer.elapsed_ms()
+                    debug_total_ms = op_total_timer.elapsed_ms()
 
                     ssa.append(obj_name)
 
@@ -180,7 +180,7 @@ def execute_run(run_req: dict, solver: str) -> dict:
                     export_ms = export_object_to_obj(obj, file_path)
 
                     op_res["status"]    = "success"
-                    op_res["total_ms"]  = total_ms
+                    op_res["debug_total_ms"]  = debug_total_ms
                     op_res["io_ms"]     = io_ms
                     op_res["import_ms"] = import_ms
                     op_res["export_ms"] = export_ms
@@ -224,7 +224,7 @@ def execute_run(run_req: dict, solver: str) -> dict:
                     bpy.ops.object.modifier_apply(modifier=mod.name)
                     operation_ms = op_timer.elapsed_ms()
 
-                    total_ms = op_total_timer.elapsed_ms()
+                    debug_total_ms = op_total_timer.elapsed_ms()
 
                     ssa.append(result_name)
 
@@ -232,28 +232,28 @@ def execute_run(run_req: dict, solver: str) -> dict:
                     export_ms = export_object_to_obj(result_obj, file_path)
 
                     op_res["status"]       = "success"
-                    op_res["total_ms"]     = total_ms
+                    op_res["debug_total_ms"]     = debug_total_ms
                     op_res["operation_ms"] = operation_ms
                     op_res["export_ms"]    = export_ms
                     op_res["file"]         = file_path
 
                 else:
                     op_res["status"]   = "unsupported"
-                    op_res["total_ms"] = 0.0
+                    op_res["debug_total_ms"] = 0.0
                     op_res["error"]    = f"unknown op: {op_str}"
                     ssa.append(f"ssa_op_{i}_empty")
                     failed = True
 
             except _UnsupportedOp as e:
                 op_res["status"]   = "unsupported"
-                op_res["total_ms"] = 0.0
+                op_res["debug_total_ms"] = 0.0
                 op_res["error"]    = str(e)
                 ops_result.append(op_res)
                 failed = True
 
             except Exception as e:
                 op_res["status"]   = "crash"
-                op_res["total_ms"] = op_total_timer.elapsed_ms()
+                op_res["debug_total_ms"] = op_total_timer.elapsed_ms()
                 op_res["error"]    = str(e)
                 failed = True
 
