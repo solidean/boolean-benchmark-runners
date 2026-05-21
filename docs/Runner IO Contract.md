@@ -147,7 +147,7 @@ Failures must be reported via `status` + `error`, not only via the exit code. Ex
 
 ## Timing field semantics
 
-`debug_total_ms` is the raw per-op wall-clock, **including the disk write of the output file**. Treat it as diagnostic only — it does not compose across ops, because summing it double-counts intermediate exports and disk writes that a real consumer would not pay if the next op reused the in-memory handle. Downstream consumers compute a clean `total_ms = import_ms + operation_ms + export_ms` from the explicit sub-fields below; the runner itself emits only `debug_total_ms`.
+`debug_total_ms` is the raw per-op wall-clock, **including the disk write of the output file**. Treat it as diagnostic only — it does not compose across ops, because summing it double-counts intermediate exports and disk writes that a real consumer would not pay if the next op reused the in-memory handle. The benchmark output deliberately does **not** synthesize a `total_ms` field from the sub-measurements either: any single composition is misleading for some benchmark question (see "Composing timings for benchmarking" below). Pick a composition deliberately from the explicit sub-fields.
 
 The other fields are sub-measurements with defined inclusion policies. Small uncategorized glue between phases is acceptable — there is no `misc_ms`.
 
