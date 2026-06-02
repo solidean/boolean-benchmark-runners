@@ -133,13 +133,27 @@ def main() -> int:
             failed.append((runner_yaml, e))
         print()
 
+    # Summary, separated from the per-runner build logs above so it's easy to spot.
+    failed_paths = {path for path, _ in failed}
+    print("========== build-all summary ==========")
+    print(f"Built {len(to_build)} runner(s):")
+    for runner_yaml in to_build:
+        status = "FAILED" if runner_yaml in failed_paths else "ok"
+        print(f"  [{status}] {runner_yaml.parent.relative_to(repo_root)}")
+    print()
+
     if failed:
-        print(f"{len(failed)} runner(s) failed:")
-        for path, _ in failed:
-            print(f"  {path}")
+        print(f"{len(failed)} runner(s) failed; rebuild individually with:")
+        for runner_yaml, _ in failed:
+            with runner_yaml.open() as f:
+                script = yaml.safe_load(f).get("build", {}).get("script", "build.py")
+            script_path = (runner_yaml.parent / script).resolve()
+            print(f"  uv run --script {script_path}")
+        print()
+        print(f"FAIL: {len(failed)}/{len(to_build)} runner(s) failed to build.")
         return 1
 
-    print("Done.")
+    print(f"SUCCESS: all {len(to_build)} runner(s) built.")
     return 0
 
 
