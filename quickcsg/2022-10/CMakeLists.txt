@@ -62,6 +62,10 @@ endif()
 file(TO_CMAKE_PATH "${PROJECT_ROOT}" PROJECT_ROOT)
 set(COMMON_INCLUDE_DIR "${PROJECT_ROOT}/_common/cpp/include")
 
+# AVX2/BMI2 on the runner executable (x86/x64 only; no-op on ARM).
+include("${PROJECT_ROOT}/_common/cpp/cmake/runner_simd.cmake")
+runner_enable_simd(quickcsg_runner)
+
 target_include_directories(quickcsg_runner PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/src
   $<$<BOOL:${WIN32}>:${CMAKE_CURRENT_SOURCE_DIR}/src/compat>  # MSVC stubs (unistd.h etc.)

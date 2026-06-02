@@ -280,13 +280,14 @@ static json execute_run(runner_utils::Config const& /*cfg*/, json const& run_req
     try
     {
         auto const& ops = run_req.at("operations");
-        std::string const out_dir = run_req.at("out_dir").get<std::string>();
-        if (out_dir.empty())
-            throw std::runtime_error("out_dir is required but was empty");
+        std::string const out_dir = run_req.value("out_dir", std::string{});
 
         // SSA storage: ssa[i] = mesh data produced by op i.
         std::vector<MeshData> ssa;
         ssa.reserve(ops.size());
+
+        // Liveness: dead_slots[i] lists SSA entries safe to free after op i.
+        auto const dead_slots = runner_utils::compute_dead_slots(ops);
 
         for (std::size_t i = 0; i < ops.size(); ++i)
         {
@@ -317,9 +318,10 @@ static json execute_run(runner_utils::Config const& /*cfg*/, json const& run_req
                     mesh.tris  = std::move(tris);
                     double const import_ms = import_timer.elapsed_ms();
 
-                    // disk write — not timed
+                    // disk write — not timed (skipped when no out_dir was requested)
                     std::string const file_path = out_dir + "/op_" + std::to_string(i) + ".obj";
-                    runner_mesh_helpers::saveToFileIndexed(file_path, mesh.verts, mesh.tris);
+                    if (!out_dir.empty())
+                        runner_mesh_helpers::saveToFileIndexed(file_path, mesh.verts, mesh.tris);
 
                     ssa.push_back(std::move(mesh));
 
@@ -327,7 +329,8 @@ static json execute_run(runner_utils::Config const& /*cfg*/, json const& run_req
                     op_res["debug_total_ms"]  = op_total_timer.elapsed_ms();
                     op_res["io_ms"]     = io_ms;
                     op_res["import_ms"] = import_ms;
-                    op_res["file"]      = file_path;
+                    if (!out_dir.empty())
+                        op_res["file"]  = file_path;
                 }
                 else if (op_str == "boolean-union" || op_str == "boolean-intersection"
                          || op_str == "boolean-difference")
@@ -357,9 +360,10 @@ static json execute_run(runner_utils::Config const& /*cfg*/, json const& run_req
                         break;
                     }
 
-                    // disk write — not timed
+                    // disk write — not timed (skipped when no out_dir was requested)
                     std::string const file_path = out_dir + "/op_" + std::to_string(i) + ".obj";
-                    runner_mesh_helpers::saveToFileIndexed(file_path, result.verts, result.tris);
+                    if (!out_dir.empty())
+                        runner_mesh_helpers::saveToFileIndexed(file_path, result.verts, result.tris);
 
                     MeshData result_mesh;
                     result_mesh.verts = std::move(result.verts);
@@ -370,7 +374,8 @@ static json execute_run(runner_utils::Config const& /*cfg*/, json const& run_req
                     op_res["debug_total_ms"]     = op_total_timer.elapsed_ms();
                     op_res["operation_ms"] = result.operation_ms;
                     op_res["export_ms"]    = result.export_ms;
-                    op_res["file"]         = file_path;
+                    if (!out_dir.empty())
+                        op_res["file"]     = file_path;
                 }
                 else
                 {
@@ -404,6 +409,10 @@ static json execute_run(runner_utils::Config const& /*cfg*/, json const& run_req
             }
 
             ops_result.push_back(op_res);
+
+            // Release SSA slots whose last use was this op — caps peak memory.
+            for (std::size_t dead_slot : dead_slots[i])
+                ssa[dead_slot] = {};
 
             if (failed)
                 break; // fail-fast

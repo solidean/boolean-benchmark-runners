@@ -125,6 +125,36 @@ def export_object_to_obj(obj: "bpy.types.Object", filepath: str) -> float:
     return export_timer.elapsed_ms()
 
 
+def compute_dead_slots(ops: list) -> list[list[int]]:
+    """For each op index, the SSA slots safe to free once that op completes.
+
+    SSA form: op i produces slot i and later ops reference earlier slots via
+    "args". A slot's last use is the highest op index that reads it (its own
+    index if never read); releasing it then caps peak memory on long runs.
+    """
+    n = len(ops)
+    last_use = list(range(n))
+    for i, op in enumerate(ops):
+        for a in op.get("args", []):
+            if 0 <= a < n:
+                last_use[a] = i
+    dead: list[list[int]] = [[] for _ in range(n)]
+    for j in range(n):
+        dead[last_use[j]].append(j)
+    return dead
+
+
+def free_ssa_object(name: str) -> None:
+    """Remove an SSA Blender object and its mesh data to release memory."""
+    obj = bpy.data.objects.get(name)
+    if obj is None:
+        return
+    mesh = obj.data
+    bpy.data.objects.remove(obj, do_unlink=True)
+    if mesh is not None and getattr(mesh, "users", 0) == 0:
+        bpy.data.meshes.remove(mesh)
+
+
 # ---------------------------------------------------------------------------
 # Per-run execution
 # ---------------------------------------------------------------------------
@@ -138,8 +168,9 @@ def execute_run(run_req: dict, solver: str) -> dict:
     try:
         ops = run_req["operations"]
         out_dir: str = run_req.get("out_dir", "")
-        if not out_dir:
-            raise RuntimeError("out_dir is required but was absent or empty")
+
+        # Liveness: dead_slots[i] lists SSA entries safe to free after op i.
+        dead_slots = compute_dead_slots(ops)
 
         # Reset Blender scene before every run.
         bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -176,15 +207,16 @@ def execute_run(run_req: dict, solver: str) -> dict:
 
                     ssa.append(obj_name)
 
-                    file_path = str(Path(out_dir) / f"op_{i}.obj")
-                    export_ms = export_object_to_obj(obj, file_path)
-
                     op_res["status"]    = "success"
                     op_res["debug_total_ms"]  = debug_total_ms
                     op_res["io_ms"]     = io_ms
                     op_res["import_ms"] = import_ms
-                    op_res["export_ms"] = export_ms
-                    op_res["file"]      = file_path
+
+                    # disk write — skipped when no out_dir was requested
+                    if out_dir:
+                        file_path = str(Path(out_dir) / f"op_{i}.obj")
+                        op_res["export_ms"] = export_object_to_obj(obj, file_path)
+                        op_res["file"]      = file_path
 
                 elif op_str in ("boolean-union", "boolean-intersection", "boolean-difference"):
                     args_list = op.get("args", [])
@@ -228,14 +260,15 @@ def execute_run(run_req: dict, solver: str) -> dict:
 
                     ssa.append(result_name)
 
-                    file_path = str(Path(out_dir) / f"op_{i}.obj")
-                    export_ms = export_object_to_obj(result_obj, file_path)
-
                     op_res["status"]       = "success"
                     op_res["debug_total_ms"]     = debug_total_ms
                     op_res["operation_ms"] = operation_ms
-                    op_res["export_ms"]    = export_ms
-                    op_res["file"]         = file_path
+
+                    # disk write — skipped when no out_dir was requested
+                    if out_dir:
+                        file_path = str(Path(out_dir) / f"op_{i}.obj")
+                        op_res["export_ms"] = export_object_to_obj(result_obj, file_path)
+                        op_res["file"]      = file_path
 
                 else:
                     op_res["status"]   = "unsupported"
@@ -258,6 +291,10 @@ def execute_run(run_req: dict, solver: str) -> dict:
                 failed = True
 
             ops_result.append(op_res)
+
+            # Release SSA objects whose last use was this op — caps peak memory.
+            for dead_slot in dead_slots[i]:
+                free_ssa_object(ssa[dead_slot])
 
             if failed:
                 break  # fail-fast

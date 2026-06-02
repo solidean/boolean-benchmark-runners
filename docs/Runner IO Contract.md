@@ -52,7 +52,7 @@ Ignore any other top-level fields.
 | Field | Description |
 |---|---|
 | `case_id` | Stable run identifier; echo on the matching result entry |
-| `out_dir` | Directory for per-op output files. Already exists |
+| `out_dir` | Directory for per-op output files; exists if present. **Optional** — when absent or empty, the runner skips all output writes and omits the per-op `file` field |
 | `bounding_box` | `{ "min": [x,y,z], "max": [x,y,z] }` over all load-mesh inputs of the run. Use it to size exact-arithmetic / spatial structures; safe to ignore otherwise |
 | `operations` | Ordered SSA-style operations |
 
@@ -78,6 +78,8 @@ For C++ runners, [`runner_utils::validate_op_boolean_binary`](../_common/cpp/inc
 ### Output files
 
 Write the result of **every** operation — including `load-mesh` — to `<out_dir>/op_<N>.<ext>` (`N` = zero-based op index). Writing loads enables load-integrity checks and standalone viewer playback. Report the path in the per-op `file` field. Disk write time is **excluded** from `io_ms` / `import_ms` / `operation_ms` / `export_ms` / `preprocessing_ms`; it lands in `debug_total_ms` along with the rest of the per-op wall-clock.
+
+If `out_dir` is absent or empty, skip all output writes — this lets a runner be invoked purely for timing — and omit the per-op `file` field for the affected ops.
 
 ## Result
 
@@ -135,7 +137,7 @@ A runner may stop at the first non-success op and emit a shorter `ops` array; mi
 | `import_ms` | optional | Raw mesh format → native internal structure |
 | `export_ms` | optional | Native internal structure → indexed-tris-f64. Disk write excluded |
 | `preprocessing_ms` | optional | Reusable per-handle prep (BVH, spatial index). Never pair-specific work |
-| `file` | yes | Path the runner wrote |
+| `file` | when written | Path the runner wrote. Present only when `out_dir` was provided |
 | `skipped_facets` | optional | Input facets rejected by the loader (load-mesh only) |
 | `error` | on failure | Human-readable error message |
 

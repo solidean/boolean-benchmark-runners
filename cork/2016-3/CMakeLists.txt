@@ -98,6 +98,10 @@ endif()
 file(TO_CMAKE_PATH "${PROJECT_ROOT}" PROJECT_ROOT)
 set(COMMON_INCLUDE_DIR "${PROJECT_ROOT}/_common/cpp/include")
 
+# AVX2/BMI2 on the runner executable (x86/x64 only; no-op on ARM).
+include("${PROJECT_ROOT}/_common/cpp/cmake/runner_simd.cmake")
+runner_enable_simd(cork_runner)
+
 # Cork's headers live in per-feature subdirectories (mesh/, math/, rawmesh/, …).
 # Collect them so relative includes like #include "mesh.h" resolve correctly.
 file(GLOB _cork_subdirs LIST_DIRECTORIES true "${CORK_SOURCE_DIR}/src/*")

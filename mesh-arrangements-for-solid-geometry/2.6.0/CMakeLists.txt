@@ -41,6 +41,10 @@ if(NOT DEFINED PROJECT_ROOT)
 endif()
 set(COMMON_INCLUDE_DIR "${PROJECT_ROOT}/_common/cpp/include")
 
+# AVX2/BMI2 on the runner executable (x86/x64 only; no-op on ARM).
+include("${PROJECT_ROOT}/_common/cpp/cmake/runner_simd.cmake")
+runner_enable_simd(mesh_arrangements_runner)
+
 target_include_directories(mesh_arrangements_runner PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/src
   ${COMMON_INCLUDE_DIR}

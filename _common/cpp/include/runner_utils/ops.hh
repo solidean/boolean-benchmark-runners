@@ -13,12 +13,19 @@
 //     Validate that ops[i] is a well-formed binary boolean op.
 //     Throws unsupported_op   if args.size() > 2.
 //     Throws std::runtime_error for any other violation.
+//
+//   compute_dead_slots(ops)
+//     Liveness pass over the SSA op list. Returns, per op index, the SSA slots
+//     that can be released once that op completes. Pair with ssa[dead_slot] = {};
+//     in the dispatch loop to cap peak memory on long runs.
+//
 // ---------------------------------------------------------------------------
 
 #include <runner_utils/progress.hh>
 
 #include <nlohmann/json.hpp>
 
+#include <cstddef>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -82,6 +89,45 @@ inline void validate_op_boolean_binary(std::size_t i,
     for (auto idx : args)
         if (idx < 0 || static_cast<std::size_t>(idx) >= i)
             throw std::runtime_error("arg index out of range: " + std::to_string(idx));
+}
+
+// Compute, for each operation index, the SSA slots that become dead *after*
+// that op completes (their last use was this op). Index by op index:
+// dead_slots[i] lists the slots safe to release once op i is done. In SSA form
+// every op i produces slot i and later ops reference earlier slots via "args";
+// releasing a slot as soon as its last consumer has run caps peak memory on
+// long runs instead of keeping every intermediate alive until the run ends.
+// A slot referenced by no later op dies right after the op that defines it.
+inline std::vector<std::vector<std::size_t>> compute_dead_slots(nlohmann::json const& ops)
+{
+    std::size_t const n = ops.is_array() ? ops.size() : 0;
+
+    // last_use[j] = highest op index that reads slot j; seeded with j so a
+    // never-consumed slot is released immediately after its defining op.
+    std::vector<std::size_t> last_use(n);
+    for (std::size_t j = 0; j < n; ++j)
+        last_use[j] = j;
+
+    // Walk forward; each arg reference extends that slot's lifetime to op i.
+    for (std::size_t i = 0; i < n; ++i)
+    {
+        auto const& op = ops[i];
+        if (!op.contains("args") || !op["args"].is_array())
+            continue;
+        for (auto const& a : op["args"])
+        {
+            long const idx = a.get<long>();
+            if (idx >= 0 && static_cast<std::size_t>(idx) < n)
+                last_use[static_cast<std::size_t>(idx)] = i;
+        }
+    }
+
+    // Bucket each slot under the op after which it dies.
+    std::vector<std::vector<std::size_t>> dead_slots(n);
+    for (std::size_t j = 0; j < n; ++j)
+        dead_slots[last_use[j]].push_back(j);
+
+    return dead_slots;
 }
 
 } // namespace runner_utils

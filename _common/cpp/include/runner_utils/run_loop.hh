@@ -119,6 +119,7 @@ int run_main_loop(ConfigT const& cfg, ExecuteRun&& execute_run, nlohmann::json e
     }
 
     auto last_flush = clock::now();
+    bool all_runs_succeeded = true;
     for (auto& run_entry : req["runs"])
     {
         std::string const run_id = run_entry.at("case_id").get<std::string>();
@@ -129,6 +130,8 @@ int run_main_loop(ConfigT const& cfg, ExecuteRun&& execute_run, nlohmann::json e
         json run_result = execute_run(cfg, run_entry);
         run_result["case_id"] = run_id;
         std::string const status = run_result["status"];
+        if (status != "success")
+            all_runs_succeeded = false;
         std::cerr << "      → " << status << "  (" << run_result["duration_ms"].get<double>() << " ms total)\n";
         res["runs"].push_back(std::move(run_result));
 
@@ -146,7 +149,8 @@ int run_main_loop(ConfigT const& cfg, ExecuteRun&& execute_run, nlohmann::json e
     if (!write_result(true))
         return 1;
 
-    return 0;
+    // Surface batch outcome through the exit code: non-zero if any run failed.
+    return all_runs_succeeded ? 0 : 1;
 }
 
 } // namespace runner_utils
