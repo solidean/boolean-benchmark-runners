@@ -211,6 +211,7 @@ static json execute_run(runner_utils::Config const& /*cfg*/, json const& run_req
     {
         auto const& ops = run_req.at("operations");
         std::string const out_dir = run_req.value("out_dir", std::string{});
+        std::string const out_format = run_req.value("out_format", std::string{"obj"});
 
         std::vector<vtkSmartPointer<vtkPolyData>> ssa;
         ssa.reserve(ops.size());
@@ -244,7 +245,7 @@ static json execute_run(runner_utils::Config const& /*cfg*/, json const& run_req
                     double const import_ms = import_timer.elapsed_ms();
 
                     // disk write — not timed (skipped when no out_dir was requested)
-                    std::string const file_path = out_dir + "/op_" + std::to_string(i) + ".obj";
+                    std::string const file_path = out_dir + "/op_" + std::to_string(i) + "." + out_format;
                     if (!out_dir.empty())
                     {
                         auto [out_verts, out_tris] = extract_polydata(poly);
@@ -294,7 +295,7 @@ static json execute_run(runner_utils::Config const& /*cfg*/, json const& run_req
                     double const export_ms = export_timer.elapsed_ms();
 
                     // disk write — not timed (skipped when no out_dir was requested)
-                    std::string const file_path = out_dir + "/op_" + std::to_string(i) + ".obj";
+                    std::string const file_path = out_dir + "/op_" + std::to_string(i) + "." + out_format;
                     if (!out_dir.empty())
                         runner_mesh_helpers::saveToFileIndexed(file_path, out_verts, out_tris);
 

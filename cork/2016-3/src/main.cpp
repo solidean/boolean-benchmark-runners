@@ -134,6 +134,7 @@ static json execute_run(runner_utils::Config const& /*cfg*/, json const& run_req
     {
         auto const& ops = run_req.at("operations");
         std::string const out_dir = run_req.value("out_dir", std::string{});
+        std::string const out_format = run_req.value("out_format", std::string{"obj"});
 
         // SSA storage: ssa[i] = result of op i.
         // Plain TriMesh structs — no custom destructors, no ownership complexity.
@@ -185,7 +186,7 @@ static json execute_run(runner_utils::Config const& /*cfg*/, json const& run_req
                     double const import_ms = import_timer.elapsed_ms();
 
                     // Disk write — not timed (skipped when no out_dir was requested).
-                    std::string const file_path = out_dir + "/op_" + std::to_string(i) + ".obj";
+                    std::string const file_path = out_dir + "/op_" + std::to_string(i) + "." + out_format;
                     if (!out_dir.empty())
                         runner_mesh_helpers::saveToFileIndexed(file_path, owned.verts, owned.tris);
 
@@ -219,7 +220,7 @@ static json execute_run(runner_utils::Config const& /*cfg*/, json const& run_req
 
                     // Export phase — data already in double/int; trivial disk prep.
                     Timer export_timer;
-                    std::string const file_path = out_dir + "/op_" + std::to_string(i) + ".obj";
+                    std::string const file_path = out_dir + "/op_" + std::to_string(i) + "." + out_format;
                     double const export_ms = export_timer.elapsed_ms();
 
                     // Disk write — not timed (skipped when no out_dir was requested).

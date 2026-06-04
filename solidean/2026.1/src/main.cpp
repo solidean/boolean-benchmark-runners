@@ -146,6 +146,7 @@ static json execute_run(runner_utils::Config const& /*cfg*/, json const& run_req
     {
         auto const& ops = run_req.at("operations");
         std::string const out_dir = run_req.value("out_dir", std::string{});
+        std::string const out_format = run_req.value("out_format", std::string{"obj"});
 
         // Derive arithmetic extent from the bounding box.
         auto const& bb = run_req.at("bounding_box");
@@ -203,7 +204,7 @@ static json execute_run(runner_utils::Config const& /*cfg*/, json const& run_req
                     double const import_ms = import_timer.elapsed_ms();
 
                     // Disk write — not timed (skipped when no out_dir was requested)
-                    std::string const file_path = out_dir + "/op_" + std::to_string(i) + ".obj";
+                    std::string const file_path = out_dir + "/op_" + std::to_string(i) + "." + out_format;
                     if (!out_dir.empty())
                     {
                         double discard_export_ms = 0.0;
@@ -236,7 +237,7 @@ static json execute_run(runner_utils::Config const& /*cfg*/, json const& run_req
                     auto result = apply_bool_op(lhs, rhs, kind, *arith, operation_ms);
 
                     double export_ms = 0.0;
-                    std::string const file_path = out_dir + "/op_" + std::to_string(i) + ".obj";
+                    std::string const file_path = out_dir + "/op_" + std::to_string(i) + "." + out_format;
                     if (!out_dir.empty())
                         save_ssa_mesh(*result, file_path, *arith, export_ms);
 

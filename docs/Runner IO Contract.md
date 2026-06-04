@@ -24,6 +24,7 @@ The base args come from `runner.yaml` `entry.args`; the chosen variant appends i
     {
       "case_id": "milling_step_037",
       "out_dir": ".../out/milling_step_037",
+      "out_format": "obj",
       "bounding_box": { "min": [-50, -50, -50], "max": [50, 50, 50] },
       "operations": [
         { "op": "load-mesh", "path": ".../workpiece_037.obj", "name": "workpiece_037.obj" },
@@ -53,6 +54,7 @@ Ignore any other top-level fields.
 |---|---|
 | `case_id` | Stable run identifier; echo on the matching result entry |
 | `out_dir` | Directory for per-op output files; exists if present. **Optional** — when absent or empty, the runner skips all output writes and omits the per-op `file` field |
+| `out_format` | Output mesh format — the extension (without dot) appended to each `op_<N>` file. **Optional**, default `obj`. A *hint*: a runner need only support `obj` and may ignore formats it doesn't implement (falling back to `obj`). Supported by the C++ helper: `obj`, `raw-f64`, `raw-f64-i32` (see Output files) |
 | `bounding_box` | `{ "min": [x,y,z], "max": [x,y,z] }` over all load-mesh inputs of the run. Use it to size exact-arithmetic / spatial structures; safe to ignore otherwise |
 | `operations` | Ordered SSA-style operations |
 
@@ -77,9 +79,19 @@ For C++ runners, [`runner_utils::validate_op_boolean_binary`](../_common/cpp/inc
 
 ### Output files
 
-Write the result of **every** operation — including `load-mesh` — to `<out_dir>/op_<N>.<ext>` (`N` = zero-based op index). Writing loads enables load-integrity checks and standalone viewer playback. Report the path in the per-op `file` field. Disk write time is **excluded** from `io_ms` / `import_ms` / `operation_ms` / `export_ms` / `preprocessing_ms`; it lands in `debug_total_ms` along with the rest of the per-op wall-clock.
+Write the result of **every** operation — including `load-mesh` — to `<out_dir>/op_<N>.<ext>` (`N` = zero-based op index, `<ext>` = `out_format`, default `obj`). Writing loads enables load-integrity checks and standalone viewer playback. Report the path in the per-op `file` field. Disk write time is **excluded** from `io_ms` / `import_ms` / `operation_ms` / `export_ms` / `preprocessing_ms`; it lands in `debug_total_ms` along with the rest of the per-op wall-clock.
 
 If `out_dir` is absent or empty, skip all output writes — this lets a runner be invoked purely for timing — and omit the per-op `file` field for the affected ops.
+
+#### Output formats
+
+`obj` is the universal default and the only format a runner must support. For high-throughput benchmarks two raw binary formats avoid text parse/format overhead — they are native-endian, header-light, and essentially `memcpy` to/from disk. The C++ helper ([`runner_mesh_helpers/io.hh`](../_common/cpp/include/runner_mesh_helpers/io.hh)) reads and writes all three by extension:
+
+| `out_format` | Extension | Layout |
+|---|---|---|
+| `obj` | `.obj` | Wavefront OBJ (text) |
+| `raw-f64` | `.raw-f64` | Unrolled. Flat `double` dump, 9 per triangle (`[x0,y0,z0, x1,y1,z1, x2,y2,z2]` × N). No index buffer |
+| `raw-f64-i32` | `.raw-f64-i32` | Indexed. `uint32 vertex_count`, `uint32 triangle_count`, then `3·vcnt` doubles (vertices), then `3·tcnt` int32 (indices) |
 
 ## Result
 
