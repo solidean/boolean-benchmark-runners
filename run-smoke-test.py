@@ -37,6 +37,12 @@ EXPECT_VOLUME = 0.496
 EXPECT_AREA   = 6.0
 TOL           = 0.001
 
+# The result must stay within A's unit box 0..1³ — B − A would extend out to the
+# translated cube's (1.1, 1.2, 1.3) corner, so the bbox distinguishes the two.
+EXPECT_BBOX_MIN = (0.0, 0.0, 0.0)
+EXPECT_BBOX_MAX = (1.0, 1.0, 1.0)
+BBOX_TOL        = 0.001
+
 # The boolean-difference is op index 2 in smoke-request.json.
 RESULT_OP_INDEX = 2
 
@@ -203,7 +209,7 @@ def _vertex_index(token, n_verts):
 
 
 def mesh_stats(obj_path):
-    """Parse an OBJ and compute triangle/vertex counts, surface area and volume.
+    """Parse an OBJ and compute triangle/vertex counts, surface area, volume and bbox.
 
     Faces are fan-triangulated; volume uses the divergence theorem over the
     triangulation. Returns None if the file is missing.
@@ -236,11 +242,15 @@ def mesh_stats(obj_path):
                         + a[1] * (b[2] * c[0] - b[0] * c[2]) \
                         + a[2] * (b[0] * c[1] - b[1] * c[0])
                     tris += 1
+    bbox_min = tuple(min(v[i] for v in verts) for i in range(3)) if verts else None
+    bbox_max = tuple(max(v[i] for v in verts) for i in range(3)) if verts else None
     return {
         "tri_count": tris,
         "vertex_count": len(verts),
         "area": area,
         "volume": abs(vol6) / 6.0,
+        "bbox_min": bbox_min,
+        "bbox_max": bbox_max,
     }
 
 
@@ -263,13 +273,23 @@ def fmt_ms(v):
 
 
 def is_success(run_result, stats):
-    """Success = boolean op succeeded, result obj present, geometry within tolerance."""
+    """Success = boolean op succeeded, result obj present, geometry within tolerance.
+
+    The bbox check (0..1³) guards against B − A, which has the same volume as
+    A − B but extends out to the translated cube's corner.
+    """
     if run_result is None or stats is None:
         return False
     ops = run_result.get("ops", [])
     if len(ops) <= RESULT_OP_INDEX or ops[RESULT_OP_INDEX].get("status") != "success":
         return False
-    return (abs(stats["volume"] - EXPECT_VOLUME) <= TOL
+    if stats["bbox_min"] is None or stats["bbox_max"] is None:
+        return False
+    bbox_ok = all(abs(stats["bbox_min"][i] - EXPECT_BBOX_MIN[i]) <= BBOX_TOL
+                  and abs(stats["bbox_max"][i] - EXPECT_BBOX_MAX[i]) <= BBOX_TOL
+                  for i in range(3))
+    return (bbox_ok
+            and abs(stats["volume"] - EXPECT_VOLUME) <= TOL
             and abs(stats["area"] - EXPECT_AREA) <= TOL)
 
 
