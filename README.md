@@ -62,6 +62,7 @@ Only the `runner.yaml` is mandatory, the rest depends on the runner type. A comm
   (`-y` means you accept all licenses, including the free non-commercial licenses of each runner;
   omit `-y` to be prompted interactively where required)
 * `uv run bootstrap-vcpkg.py` (optional, pre-warms vcpkg packages for all runners, 60+ min cold)
+* `uv run run-smoke-test.py` runs every built runner against the cube-minus-cube smoke case and prints a results table (`-r <pattern>` to filter by slug/name, repeatable)
 
 ## TODOs
 
